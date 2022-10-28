@@ -1,3 +1,19 @@
+#' Read metabolomics data
+#'
+#' @description Imports metabolomics data corresponding to the analysis type.
+#'
+#' @importFrom stringr str_extract
+#'
+#' @param path Path to the `xlsx` file.
+#' @param type character name of MS type. One of `"untargeted_LC"`,
+#' `"untargeted_GC"`, `"targeted_LC"`, `"targeted_GC"` and `"biocrates"`.
+#'
+#' @details This function uses ...
+#'
+#' @keywords internal
+#'
+
+
 
 read_data <- function(path, type, orientation = NULL) {
 
@@ -50,7 +66,7 @@ read_tGC <- function() {
 #' @importFrom readxl read_xlsx
 #' @importFrom stringr str_extract
 #'
-#' @param path Path to the `xlsx` file.
+#' @inheritParams read_data
 #'
 #' @details This function uses \code{\link[readxl]{read_xlsx}}
 #'
