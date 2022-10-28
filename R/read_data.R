@@ -45,11 +45,12 @@ read_tGC <- function() {
 
 #' Read Biocrates data
 #'
-#' @description Imports Biocrates data from the `.xlsx` file
+#' @description Imports Biocrates data from the `.xlsx` file.
 #'
 #' @importFrom readxl read_xlsx
+#' @importFrom stringr str_extract
 #'
-#' @param path aaaa
+#' @param path Path to the `xlsx` file.
 #'
 #' @details This function uses \code{\link[readxl]{read_xlsx}}
 #'
@@ -58,11 +59,32 @@ read_tGC <- function() {
 
 
 read_biocrates <- function(path) {
+  dat <- as.data.table(read_xlsx(path, skip = 1))
 
+  sets <- dat[str_extract(`Measurement Time`, "LOD") == "LOD", 20:ncol(dat)]
+  sets[, `Measurement Time` := str_extract(`Measurement Time`, "(\\d)+")]
 
+  dat <- dat[!is.na(`Plate Bar Code`)]
 }
 
 
+
+#' Removes metabolites with large % of < LOD values from the data
+#'
+#' @param targeted_dat data returned by read_biocrates, read_tLC or read_tGC
+#' @param pctg a number denoting <LOD %.  The metabolites which contain more
+#' than \code{pctg} % of  <LOD will be removed from the data.
+#'
+#'
+#' @keywords internal
+#'
+
+remove_sparse_metabolites <- function(targeted_dat, pctg) {
+  targeted_dat[, .SD, .SDcols = {
+    means <- colMeans(dat == "< LOD", na.rm = TRUE) < pctg/100
+    means | is.na(means)
+  }]
+}
 
 
 
