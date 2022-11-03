@@ -2,11 +2,23 @@ Package: metaboR
 Type: Package
 Title: What the Package Does (Title Case)
 Version: 0.1.0
-Author: Who wrote it
-Maintainer: The package maintainer <yourself@somewhere.net>
+Authors@R: c(person(given = "Krystyna", 
+           family = "Grzesiak", 
+           email = "krygrz11@gmail.com",
+           role = c("cre", "aut")),
+           person(given = "Michal", 
+           family = "Burdukiewicz", 
+           email = "michalburdukiewicz@gmail.com", 
+           comment = c(ORCID = "0000-0001-8926-582X"),
+           role = c("ctb")))
+Maintainer: Krystyna Grzesiak <krygrz11@gmail.com>
 Description: More about what it does (maybe more than one line)
     Use four spaces when indenting paragraphs within the Description.
-License: What license is it under?
+License: GPL (>= 3)
 Encoding: UTF-8
+Imports:
+    data.table,
+    readxl,
+    stringr
 LazyData: true
 RoxygenNote: 7.2.1
