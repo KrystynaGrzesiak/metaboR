@@ -16,7 +16,6 @@
 #'
 
 
-
 read_data <- function(path, type, clinical_path = NULL, orientation = NULL) {
 
   if(!file.exists("path"))
@@ -39,7 +38,7 @@ read_data <- function(path, type, clinical_path = NULL, orientation = NULL) {
     else
       clinical_data <- read_clinical_data(clinical_path)
   } else{
-    clinical_data <- NULL
+    clinical_data <- metaboR_clinical(clinical_data = data.table())
   }
 
   dat <- switch(type,
@@ -49,6 +48,7 @@ read_data <- function(path, type, clinical_path = NULL, orientation = NULL) {
                 targeted_GC = read_tGC(path),
                 biocrates = read_biocrates(path)
   )
+
 
   metaboR_raw_data(dat,
                    type = type,
@@ -152,20 +152,23 @@ read_biocrates <- function(path) {
 }
 
 
-
-
 #' Reads clinical data
+#'
+#' @importFrom tools file_ext
 #'
 #' @description This function imports the data containing clinical information
 #' about samples.
 #'
 #' @param path Path to the `xlsx` file. Default NULL, denoting no clinical data
 #' regarding considered metabolomics matrix. See details for more information.
+#' The data contained in \code{path} should have subject id in the first column.
+#' @param subject_id character name of column in the clinical data that contains
+#' unique names of subjects. Default NULL. If NULL, then the first unique column
+#' from data is taken.
 #'
-#' @details The data contained in \code{path} should have
-#' subject id in the first column.
+#' @return an onject of metaboR_clinical class
 #'
-#' This function is a supplementary function for
+#' @details This function is a supplementary function for
 #' \code{\link[metaboR]{read_data}}. It is used to load the clinical data and
 #' associate it with the metabolomics matrix  within
 #' \code{\link{metaboR_raw_data}} class.
@@ -173,10 +176,12 @@ read_biocrates <- function(path) {
 #' @export read_clinical_data
 #'
 
-read_clinical_data <- function(path) {
+read_clinical_data <- function(path, subject_id = NULL) {
 
-  clinical_data <- read_xlsx(path)
-  subject_id <- colnames(clinical_data)[1]
+  clinical_data <- switch(file_ext(path),
+                          "csv" = fread(path, data.table = TRUE),
+                          "xlsx" = as.data.table(read_excel(path)),
+                          "xls" = as.data.table(read_excel(path)))
 
   metaboR_clinical(clinical_data = clinical_data,
                    subject_id = subject_id)

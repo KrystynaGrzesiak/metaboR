@@ -8,10 +8,8 @@ validate_metaboR_raw_data <- function(metaboR_raw_data) {
 
   type <- match.arg(type, c("untargeted_LC", "untargeted_GC", "targeted_LC",
                             "targeted_GC", "Biocrates"))
-
   if(!is.null(clinical_data) & !inherits(clinical_data, "metaboR_clinical"))
     stop("Clinical data should have 'metaboR_clinical' class.")
-
   if(!is.data.frame(raw_data))
     stop("Provided raw data should be a data frame")
 
