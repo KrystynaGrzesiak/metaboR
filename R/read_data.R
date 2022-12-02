@@ -6,9 +6,11 @@
 #' @import data.table
 #'
 #' @param path Path to the `xlsx` file.
-#' @param type character name of MS type. One of `"untargeted_LC"`,
-#' `"untargeted_GC"`, `"targeted_LC"`, `"targeted_GC"` and `"biocrates"`.
-#' @param orientation specifies orientation of compounds - "rowwise" or "colwise"
+#' @param type character vector of two elements. First one defines the type of
+#' analysis, either `"targeted"` or `"untargeted"`. Second one defined MS type, one
+#' of `"LC"`, `"GC"`, `"Biocrates"`.
+#' @param orientation specifies orientation of compounds - `"rowwise"` or
+#' `"colwise"`
 #'
 #' @details This function uses ...
 #'
@@ -16,43 +18,96 @@
 #'
 
 
-read_data <- function(path, type, clinical_path = NULL, orientation = NULL) {
-
-  if(!file.exists("path"))
-    stop("This file does not exist.")
-
-  type <- match.arg(type, c("untargeted_LC", "untargeted_GC", "targeted_LC",
-                            "targeted_GC", "biocrates"))
-  # if(type == "biocrates" & !is.null(orientation))
-  #   warning("For Biocrates files provided orientation will be ignored.")
-  #
-  # if(type != "biocrates" & is.null(orientation))
-  #   stop("You must specify the orientation of subjects and metabolites in your data.")
+read_data <- function(path,
+                      type,
+                      orientation = NULL,
+                      clinical_path = NULL,
+                      subject_id = NULL,
+                      LOD_table_path = NULL,
+                      ...) {
 
   if(!file.exists(path))
-    stop(paste0("The file ", path, " does not exist."))
+    stop(paste0("The file ", path, " does not exist.
+                You probably provided wrong path."))
 
-  if(!is.null(clinical_path)) {
-    if(!file.exists(clinical_path))
-      stop(paste0("The file ", clinical_path, " does not exist."))
-    else
-      clinical_data <- read_clinical_data(clinical_path)
-  } else{
-    clinical_data <- metaboR_clinical(clinical_data = data.table())
+  type[1] <- match.arg(type[1], c("targeted", "untargeted"))
+  type[2] <- match.arg(type[2], c("Biocrates", "LC", "GC"))
+
+  if(type == c("untargeted", "Biocrates"))
+    stop("Wrong analysis type. You provided untargeted Biocrates.")
+
+  if(type[2] == "Biocrates"){
+
+    if(!is.null(orientation))
+      warning("For Biocrates files provided orientation will be ignored.")
+
+    if(!is.null(LOD_table_path))
+      warning("For Biocrates file provided LOD_table will be ignored.")
+
+    LOD_table <- NULL
+
+  } else {
+
+    if(is.null(orientation))
+      stop("You must specify the orientation of subjects and metabolites in the data.
+         Orientation of compounds should be either 'colwise' or 'rowwise'")
+    orientation <- match.arg(orientation, c("rowwise", "colwise"))
+
+    if(type[1] == "targeted"){
+
+      if(is.null(LOD_table_path))
+        stop(paste("For the analysis type:", paste(type, collapse = " "),
+                   "`LOD_table_path` need to be provided."))
+
+      if(!file.exists(LOD_table_path))
+        stop(paste0("The file ", path, " does not exist."))
+
+      if(!file.exists(LOD_table_path))
+        stop(paste0("The file ", LOD_table_path, " does not exist."))
+
+      #reading LOD table
+      LOD_table <- read_LOD_table(LOD_table_path)
+    } else {
+
+      if(!is.null(LOD_table_path))
+        warning(paste("For the analysis type:", paste(type, collapse = " "),
+                      "`LOD_table_path` will be ignored."))
+      LOD_table <- NULL
+    }
   }
 
-  dat <- switch(type,
-                untargeted_LC = read_uLC(path),
-                untargeted_GC = read_uGC(path),
-                targeted_LC = read_tLC(path),
-                targeted_GC = read_tGC(path),
-                biocrates = read_biocrates(path)
+  if(!is.null(clinical_path)) {
+
+    if(!file.exists(clinical_path))
+      stop(paste0("The file ", clinical_path, " does not exist."))
+
+    #reading clinical data
+    clinical_data <- read_clinical_data(clinical_path, subject_id)
+
+  } else {
+    clinical_data <- NULL
+  }
+
+  raw_data <- switch(paste(type, collapse = "_"),
+                     #reading metabolomics matrix
+                     untargeted_LC = read_untargeted_LC(path, orientation),
+                     untargeted_GC = read_untargeted_GC(path, orientation),
+                     targeted_LC = read_targeted(path, orientation),
+                     targeted_GC = read_targeted(path, orientation),
+                     targeted_Biocrates = read_biocrates(path, ...)
   )
 
-
-  metaboR_raw_data(dat,
-                   type = type,
-                   clinical_data = clinical_data)
+  if(type[2] == "Biocrates"){
+    metaboR_raw_data(raw_data[["matrix"]],
+                     type = type,
+                     clinical_data = raw_data[["clinical_data"]],
+                     LOD_table = raw_data[["LOD_table"]])
+  } else {
+    metaboR_raw_data(raw_data,
+                     type = type,
+                     clinical_data = clinical_data,
+                     LOD_table = LOD_table)
+  }
 
 }
 
@@ -67,11 +122,11 @@ read_data <- function(path, type, clinical_path = NULL, orientation = NULL) {
 #' @keywords internal
 #'
 
-read_uLC <- function(path) {
+read_untargeted_LC <- function(path, orientation) {
+
   dat <- fread(path)
   dat[, `Number Passed` := NULL]
   dat[dat == 1] <- NA
-
   dat
 }
 
@@ -86,71 +141,15 @@ read_uLC <- function(path) {
 #' @keywords internal
 #'
 
-read_uGC <- function(path) {
+read_untargeted_GC <- function(path) {
+
   dat <- as.data.table(read_xlsx(path))[`Compound Method` != "Name", ]
-  setnames(dat, c("...2", "...3", "...4"), c("RT", "MZ", "CAS#"))
+  setnames(dat,
+           old = c("Compound Method", "...2", "...3", "...4"),
+           new = c("Compound", "RT", "MZ", "CAS#"))
+  dat <- transpose(dat, keep.names = "Sample_ID", make.names = "Compound")
   dat
 }
-
-#' Read targeted LC data
-#'
-#' @description Imports untargeted LC data from the `.xlsx` file.
-#'
-#' @inheritParams read_data
-#'
-#' @details This function uses \code{\link[readxl]{read_xlsx}}
-#'
-#' @keywords internal
-#'
-
-read_tLC <- function(path) {
-  dat <- as.data.table(read_xlsx(path))
-  dat
-}
-
-#' Read targeted GC data
-#'
-#' @description Imports untargeted LC data from the `.xlsx` file.
-#'
-#' @inheritParams read_data
-#'
-#' @details This function uses \code{\link[readxl]{read_xlsx}}
-#'
-#' @keywords internal
-#'
-
-read_tGC <- function(path) {
-
-}
-
-
-#' Read Biocrates data
-#'
-#' @description Imports Biocrates data from the `.xlsx` file.
-#'
-#' @importFrom readxl read_xlsx
-#' @importFrom stringr str_extract
-#'
-#' @inheritParams read_data
-#'
-#' @details This function uses \code{\link[readxl]{read_xlsx}}
-#'
-#' @keywords internal
-#'
-
-
-read_biocrates <- function(path) {
-  dat <- as.data.table(read_xlsx(path, skip = 1))
-
-  sets <- dat[str_extract(`Measurement Time`, "LOD") == "LOD", 20:ncol(dat)]
-  sets[, `Measurement Time` := str_extract(`Measurement Time`, "(\\d)+")]
-
-  dat <- dat[!is.na(`Plate Bar Code`)]
-
-  #tutaj zwrócić zarówno dat jak i sets
-
-}
-
 
 #' Reads clinical data
 #'
@@ -159,9 +158,8 @@ read_biocrates <- function(path) {
 #' @description This function imports the data containing clinical information
 #' about samples.
 #'
-#' @param path Path to the `xlsx` file. Default NULL, denoting no clinical data
-#' regarding considered metabolomics matrix. See details for more information.
-#' The data contained in \code{path} should have subject id in the first column.
+#' @param path Path to the `xlsx` file. The data contained in \code{path} should
+#' have subject id in the first column.  See details for more information.
 #' @param subject_id character name of column in the clinical data that contains
 #' unique names of subjects. Default NULL. If NULL, then the first unique column
 #' from data is taken.
@@ -178,6 +176,10 @@ read_biocrates <- function(path) {
 
 read_clinical_data <- function(path, subject_id = NULL) {
 
+  if(!file.exists(path))
+    stop(paste0("The file ", path, " does not exist.
+                You probably provided wrong path."))
+
   clinical_data <- switch(file_ext(path),
                           "csv" = fread(path, data.table = TRUE),
                           "xlsx" = as.data.table(read_excel(path)),
@@ -187,7 +189,6 @@ read_clinical_data <- function(path, subject_id = NULL) {
                    subject_id = subject_id)
 
 }
-
 
 
 

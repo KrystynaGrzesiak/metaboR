@@ -18,3 +18,10 @@
 #'     means | is.na(means)
 #'   }]
 #' }
+#'
+#'
+#' function5(szpringiel, x):
+#'     z = x + 1
+#'     y = z + szpringiel
+#'     return y
+#'
