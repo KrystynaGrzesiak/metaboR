@@ -33,17 +33,26 @@ read_biocrates <- function(path, keep_cols = "none", clinical_data = NULL) {
                 You probably provided wrong path."))
 
   dat <- as.data.table(read_xlsx(path, skip = 1))
-  setnames(dat,
-           old = c("Measurement Time", "Sample Identification"),
-           new = c("Concentration", "Sample_ID"))
 
-  LOD_table <- dat[str_extract(Concentration, "LOD") == "LOD", 20:ncol(dat)]
-  LOD_table[, Concentration := str_extract(Concentration, "(\\d)+")]
+  LOD_table <- dat[str_extract(`Measurement Time`, "LOD") == "LOD", 20:ncol(dat)]
+  setnames(LOD_table, old = c("Measurement Time"), new = c("Plate_Code"))
+  LOD_table <- LOD_table[, Plate_Code := str_extract(Plate_Code, "(\\d)+")]
 
+  setnames(dat, old = c("Sample Identification"), new = c("Sample_ID"))
 
   cols_info <- clean_biocrates(keep_cols)
   cols_to_remove <- cols_info[["cols_to_remove"]]
   cols_to_save <- c("Sample_ID", cols_info[["cols_to_save"]])
+
+  dat <- dat[!is.na(`Plate Bar Code`)]
+
+  LOD_table[, Plate_Code := {
+    sets <- unique(dat[["Plate Bar Code"]])
+    sapply(Plate_Code, function(value) {
+      sets[grepl(value, sets, fixed = TRUE)]
+    })
+  }]
+  LOD_table <- LOD_table[, lapply(.SD, function(col) {mean(as.numeric(col))}),  by = Plate_Code]
 
   clinical_to_add <- dat[, ..cols_to_save]
 
@@ -59,15 +68,13 @@ read_biocrates <- function(path, keep_cols = "none", clinical_data = NULL) {
   clinical_data <- metaboR_clinical(clinical_to_add,
                                     subject_id = "Sample_ID")
 
+  dat <- dat[ , .SD, .SDcols = !cols_to_remove]
 
-  dat <- dat[!is.na(`Plate Bar Code`), .SD,
-             .SDcols = !cols_to_remove]
-
-  metaboR_LOD_data(matrix = dat,
+  metaboR_LOD_data(dat,
                    type = c("targeted", "biocrates"),
                    LOD_table = LOD_table,
                    clinical_data = clinical_data)
-}
+ }
 
 
 #' Supplementary cleaning for biocrates data
@@ -85,7 +92,7 @@ clean_biocrates <- function(keep_cols) {
                        "Material", "OP", "Org. Info", "Plate Production No.",
                        "gender", "sample type", "Plate Note", "Well Position",
                        "Sample Volume", "Run Number", "Injection Number",
-                       "Concentration")
+                       "Measurement Time")
   if(keep_cols == "all")
     cols_to_save <- additional_cols
   if(keep_cols == "none")
@@ -101,7 +108,6 @@ clean_biocrates <- function(keep_cols) {
   }
   cols_to_remove <- setdiff(additional_cols,
                             cols_to_save)
-
 
   list(cols_to_remove = cols_to_remove,
        cols_to_save = cols_to_save)

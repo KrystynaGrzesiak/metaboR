@@ -98,7 +98,7 @@ read_data <- function(path,
   )
 
   if(type[2] == "Biocrates"){
-    metaboR_raw_data(raw_data[["matrix"]],
+    metaboR_raw_data(raw_data[["metabo_matrix"]],
                      type = type,
                      clinical_data = raw_data[["clinical_data"]],
                      LOD_table = raw_data[["LOD_table"]])

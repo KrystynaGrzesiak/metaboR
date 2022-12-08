@@ -3,10 +3,9 @@
 
 validate_metaboR_LOD_data <- function(LOD_data) {
 
-  matrix <- attr(LOD_data, matrix)
-  type <- attr(LOD_data, type)
-  clinical_data <- attr(LOD_data, clinical_data)
-  LOD_table <- attr(LOD_data, LOD_table)
+  type <- attr(LOD_data, "type")
+  clinical_data <- attr(LOD_data, "clinical_data")
+  LOD_table <- attr(LOD_data, "LOD_table")
 
   # validate analysis type
   if(!(type[1] == "targeted"))
@@ -17,22 +16,16 @@ validate_metaboR_LOD_data <- function(LOD_data) {
   type[2] <- match.arg(type[2], c("LC", "GC", "biocrates"))
 
   #validate LOD_table
-  if(nrow(LOD_table) == 0)
-    stop("For targeted analysis LOD table needs to be provided.")
-
   # TODO: tutaj sprawdzić czy LOD table jest ok i pasuje do metabolitow
 
   # validate clinical data
-  if(!is.na(clinical_data) & !inherits(clinical_data, "clinical_data"))
-    stop("Clinical data should have 'clinical_data' class.")
-  if(is.na(clinical_data))
+  if(!is.null(clinical_data) & !inherits(clinical_data, "metaboR_clinical"))
+    stop("Clinical data should have 'metaboR_clinical' class.")
+  if(is.null(clinical_data))
     warning("No clinical data provided.")
 
   #TODO: sprawdzić czy clinical data zgadza się z macierzą
-
-  #validate matrix
-  if(!is.data.frame(matrix))
-    stop("Provided metabolomic matrix should be a data frame.")
+  # to może być robione w funkcji dla każdych danych klinicznych
 
   LOD_data
 
@@ -40,15 +33,15 @@ validate_metaboR_LOD_data <- function(LOD_data) {
 
 ### HELPER
 
-metaboR_LOD_data <- function(matrix,
+metaboR_LOD_data <- function(metabo_matrix,
                              type,
                              LOD_table,
-                             clinical_data = NA) {
+                             clinical_data = NULL) {
 
-  matrix <- as.data.table(matrix)
+  metabo_matrix <- as.data.table(metabo_matrix)
   LOD_table <- as.data.table(LOD_table)
 
-  validate_metaboR_LOD_data(new_metaboR_LOD_data(matrix = matrix,
+  validate_metaboR_LOD_data(new_metaboR_LOD_data(metabo_matrix = metabo_matrix,
                                                  type = type,
                                                  LOD_table = LOD_table,
                                                  clinical_data = clinical_data))
@@ -57,13 +50,13 @@ metaboR_LOD_data <- function(matrix,
 
 ## CREATOR
 
-new_metaboR_LOD_data <- function(matrix,
+new_metaboR_LOD_data <- function(metabo_matrix,
                                  type,
                                  LOD_table,
-                                 clinical_data = NA){
+                                 clinical_data = NULL){
 
-  structure(matrix,
-            class = c("metaboR_LOD_data", "data.frame"),
+  structure(metabo_matrix,
+            class = c("metaboR_LOD_data", "data.table", "data.frame"),
             type = type,
             LOD_table = LOD_table,
             clinical_data = clinical_data)
