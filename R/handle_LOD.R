@@ -1,5 +1,5 @@
 
-#' Completing values under the limit of detection LOD in targeted metabolomics
+#' Imputing values under the limit of detection LOD in targeted metabolomics
 #' analysis
 #'
 #' @description This function removes sparse metabolites for which the
@@ -19,13 +19,7 @@
 
 handle_LOD <- function(LOD_data, LOD_threshold = 0.3) {
 
-  LOD_data <- metaboR_LOD_data(dat,
-                               type = c("targeted", "biocrates"),
-                               LOD_table = LOD_table,
-                               clinical_data = clinical_data)
-
   LOD_data <- remove_sparse_metabolites(LOD_data, LOD_threshold)
-
 
 
 }
@@ -40,11 +34,11 @@ handle_LOD <- function(LOD_data, LOD_threshold = 0.3) {
 #'
 #' @inheritParams handle_LOD
 #'
-#' @keywords internal
+#' @export remove_sparse_metabolites
 
 remove_sparse_metabolites <- function(LOD_data, LOD_threshold) {
   LOD_data[, .SD, .SDcols = {
-    means <- colMeans(dat == "< LOD", na.rm = TRUE) < LOD_threshold
+    means <- colMeans(LOD_data == "< LOD", na.rm = TRUE) < LOD_threshold
     means | is.na(means)
   }]
 }

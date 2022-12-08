@@ -4,20 +4,24 @@
 \alias{read_clinical_data}
 \title{Reads clinical data}
 \usage{
-read_clinical_data(path)
+read_clinical_data(path, subject_id = NULL)
 }
 \arguments{
-\item{path}{Path to the `xlsx` file. Default NULL, denoting no clinical data
-regarding considered metabolomics matrix. See details for more information.}
+\item{path}{Path to the `xlsx` file. The data contained in \code{path} should
+have subject id in the first column.  See details for more information.}
+
+\item{subject_id}{character name of column in the clinical data that contains
+unique names of subjects. Default NULL. If NULL, then the first unique column
+from data is taken.}
+}
+\value{
+an onject of metaboR_clinical class
 }
 \description{
 This function imports the data containing clinical information
 about samples.
 }
 \details{
-The data contained in \code{path} should have
-subject id in the first column.
-
 This function is a supplementary function for
 \code{\link[metaboR]{read_data}}. It is used to load the clinical data and
 associate it with the metabolomics matrix  within
