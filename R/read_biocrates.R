@@ -52,7 +52,12 @@ read_biocrates <- function(path, keep_cols = "none", clinical_data = NULL) {
       sets[grepl(value, sets, fixed = TRUE)]
     })
   }]
-  LOD_table <- LOD_table[, lapply(.SD, function(col) {mean(as.numeric(col))}),  by = Plate_Code]
+  LOD_table <- LOD_table[, lapply(.SD, function(col) {
+    mean(as.numeric(col))
+  }),  by = Plate_Code]
+
+  LOD_table <- melt(LOD_table, id.vars = "Plate_Code",
+       variable.name = "Compound", value.name = "Value")
 
   clinical_to_add <- dat[, ..cols_to_save]
 
@@ -74,7 +79,7 @@ read_biocrates <- function(path, keep_cols = "none", clinical_data = NULL) {
                    type = c("targeted", "biocrates"),
                    LOD_table = LOD_table,
                    clinical_data = clinical_data)
- }
+}
 
 
 #' Supplementary cleaning for biocrates data
