@@ -8,14 +8,15 @@ clean_biocrates(keep_cols)
 }
 \arguments{
 \item{keep_cols}{character vector. Indicates whether the
-variables "Sample Bar Code", "Sample Type", "Sample Description",
-"Submission Name", "Collection Date", "Species", "Material", "OP",
-"Org. Info", "Plate Production No.", "gender", "sample type", "Plate Note",
+variables "Sample Bar Code", "Sample Description",  "Submission Name",
+"Collection Date", "Species", "Material", "OP",  "Org. Info",
+"Plate Production No.", "gender", "sample type", "Plate Note",
 "Well Position", "Sample Volume", "Run Number", "Injection Number",
 "Measurement Time" should be left as a part of clinical data. You can
 provide either `all` indicating that all of the mentioned variables should
 remain in the data, `none` indicating that all should be removed or a
-character vector of names of columns that should remain.}
+character vector of names of columns that should remain. Note that the
+variables "Sample Type" and "Sample Identification" will not be removed.}
 }
 \description{
 Supplementary cleaning for biocrates data

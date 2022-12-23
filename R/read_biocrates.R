@@ -8,14 +8,16 @@
 #'
 #' @param path Path to the `.xlsx` file.
 #' @param keep_cols character vector. Indicates whether the
-#' variables "Sample Bar Code", "Sample Type", "Sample Description",
-#' "Submission Name", "Collection Date", "Species", "Material", "OP",
-#' "Org. Info", "Plate Production No.", "gender", "sample type", "Plate Note",
+#' variables "Sample Bar Code", "Sample Description",  "Submission Name",
+#' "Collection Date", "Species", "Material", "OP",  "Org. Info",
+#' "Plate Production No.", "gender", "sample type", "Plate Note",
 #' "Well Position", "Sample Volume", "Run Number", "Injection Number",
 #' "Measurement Time" should be left as a part of clinical data. You can
 #' provide either `all` indicating that all of the mentioned variables should
 #' remain in the data, `none` indicating that all should be removed or a
-#' character vector of names of columns that should remain.
+#' character vector of names of columns that should remain. Note that the
+#' variables "Sample Type" and "Sample Identification" will not be removed.
+
 #' @param clinical_data clinical data of metaboR_clinical class. Use
 #' \code{\link[metaboR]{metaboR_clinical}} to read clinical data.
 #'
@@ -35,8 +37,8 @@ read_biocrates <- function(path, keep_cols = "none", clinical_data = NULL) {
   dat <- as.data.table(read_xlsx(path, skip = 1))
 
   LOD_table <- dat[str_extract(`Measurement Time`, "LOD") == "LOD", 20:ncol(dat)]
-  setnames(LOD_table, old = c("Measurement Time"), new = c("Plate_Code"))
-  LOD_table <- LOD_table[, Plate_Code := str_extract(Plate_Code, "(\\d)+")]
+  setnames(LOD_table, old = c("Measurement Time"), new = c("Plate Bar Code"))
+  LOD_table <- LOD_table[, `Plate Bar Code` := str_extract(`Plate Bar Code`, "(\\d)+")]
 
   setnames(dat, old = c("Sample Identification"), new = c("Sample_ID"))
 
@@ -46,17 +48,17 @@ read_biocrates <- function(path, keep_cols = "none", clinical_data = NULL) {
 
   dat <- dat[!is.na(`Plate Bar Code`)]
 
-  LOD_table[, Plate_Code := {
+  LOD_table[, `Plate Bar Code` := {
     sets <- unique(dat[["Plate Bar Code"]])
-    sapply(Plate_Code, function(value) {
+    sapply(`Plate Bar Code`, function(value) {
       sets[grepl(value, sets, fixed = TRUE)]
     })
   }]
   LOD_table <- LOD_table[, lapply(.SD, function(col) {
     mean(as.numeric(col))
-  }),  by = Plate_Code]
+  }),  by = `Plate Bar Code`]
 
-  LOD_table <- melt(LOD_table, id.vars = "Plate_Code",
+  LOD_table <- melt(LOD_table, id.vars = "Plate Bar Code",
        variable.name = "Compound", value.name = "Value")
 
   clinical_to_add <- dat[, ..cols_to_save]
@@ -92,7 +94,7 @@ read_biocrates <- function(path, keep_cols = "none", clinical_data = NULL) {
 #'
 
 clean_biocrates <- function(keep_cols) {
-  additional_cols <- c("Sample Bar Code", "Sample Type", "Sample Description",
+  additional_cols <- c("Sample Bar Code", "Sample Description",
                        "Submission Name", "Collection Date", "Species",
                        "Material", "OP", "Org. Info", "Plate Production No.",
                        "gender", "sample type", "Plate Note", "Well Position",
