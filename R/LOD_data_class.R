@@ -15,7 +15,13 @@ validate_metaboR_LOD_data <- function(LOD_data) {
 
   type[2] <- match.arg(type[2], c("LC", "GC", "biocrates"))
 
-  #validate LOD_table
+  #validate metabolomics matrix
+  if(uniqueN(LOD_data[`Sample Type` == "Sample"],
+             by = key(LOD_data)) != nrow(LOD_data[`Sample Type` == "Sample"]))
+    stop("You need to provide unique sample ID.
+         There are some duplicated samples in your file.")
+
+  #validate LOD_table GC LC targeted
   # TODO: tutaj sprawdzić czy LOD table jest ok i pasuje do metabolitow
 
   # validate clinical data

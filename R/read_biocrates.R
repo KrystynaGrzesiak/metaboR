@@ -76,6 +76,7 @@ read_biocrates <- function(path, keep_cols = "none", clinical_data = NULL) {
                                     subject_id = "Sample_ID")
 
   dat <- dat[ , .SD, .SDcols = !cols_to_remove]
+  setkey(dat, Sample_ID)
 
   metaboR_LOD_data(dat,
                    type = c("targeted", "biocrates"),

@@ -1,6 +1,6 @@
 Package: metaboR
 Type: Package
-Title: What the Package Does (Title Case)
+Title: Processing and Analysis of Metabolomics Data
 Version: 0.1.0
 Authors@R: c(person(given = "Krystyna", 
            family = "Grzesiak", 
@@ -12,8 +12,8 @@ Authors@R: c(person(given = "Krystyna",
            comment = c(ORCID = "0000-0001-8926-582X"),
            role = c("ctb")))
 Maintainer: Krystyna Grzesiak <krygrz11@gmail.com>
-Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
+Description: This package provides functionality for post-processing and 
+    analysis of metabolomics data.
 License: GPL (>= 3)
 Encoding: UTF-8
 Imports:

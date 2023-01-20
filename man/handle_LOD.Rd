@@ -16,6 +16,11 @@ equal or greater than \code{LOD_threshold} will be removed from the data.}
 }
 \description{
 This function removes sparse metabolites for which the
-ratio of <LOD values is large and completes <LOD values in accordance to
-the provided LOD table.
+ratio of <LOD values is large, completes <LOD values in accordance to
+the provided LOD table and calculates CV of QC samples.
+}
+\details{
+This function returns an object of class `metaboR_CV_data` which
+contains metabolomics profile in long data format and `CV_table` with
+coefficient variation calculated for QC samples.
 }
