@@ -70,10 +70,10 @@ read_biocrates <- function(path, keep_cols = "none", clinical_data = NULL) {
                              clinical_to_add,
                              by.x = subject_id,
                              by.y = "Sample_ID")
+  } else {
+    clinical_data <- metaboR_clinical(clinical_to_add,
+                                      subject_id = "Sample_ID")
   }
-
-  clinical_data <- metaboR_clinical(clinical_to_add,
-                                    subject_id = "Sample_ID")
 
   dat <- dat[ , .SD, .SDcols = !cols_to_remove]
   setkey(dat, Sample_ID)
