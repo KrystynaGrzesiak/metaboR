@@ -23,7 +23,6 @@ handle_LOD <- function(LOD_data, LOD_threshold = 0.3) {
 
   clinical_data <- attr(LOD_data, "clinical_data")
 
-  LOD_data <- remove_sparse_metabolites(LOD_data, LOD_threshold)
   LOD_data <- complete_LOD(LOD_data)
 
   CV_table <- LOD_data[`Sample Type` != "Sample", !"Sample_ID"]
