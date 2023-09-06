@@ -5,14 +5,10 @@
 \title{Imputing values under the limit of detection LOD in targeted metabolomics
 analysis}
 \usage{
-handle_LOD(LOD_data, LOD_threshold = 0.3)
+handle_LOD(LOD_data)
 }
 \arguments{
 \item{LOD_data}{an object of metaboR_LOD_data class.}
-
-\item{LOD_threshold}{a value from 0 to 1 denoting threshold of fraction of
-LOD in metabolites from the sample. Each metabolite with  <LOD ratio
-equal or greater than \code{LOD_threshold} will be removed from the data.}
 }
 \description{
 This function removes sparse metabolites for which the

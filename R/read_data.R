@@ -189,8 +189,3 @@ read_clinical_data <- function(path, subject_id = NULL) {
                    subject_id = subject_id)
 
 }
-
-
-
-
-

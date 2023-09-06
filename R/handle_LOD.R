@@ -8,10 +8,6 @@
 #'
 #' @param LOD_data an object of metaboR_LOD_data class.
 #'
-#' @param LOD_threshold a value from 0 to 1 denoting threshold of fraction of
-#' LOD in metabolites from the sample. Each metabolite with  <LOD ratio
-#' equal or greater than \code{LOD_threshold} will be removed from the data.
-#'
 #' @details This function returns an object of class `metaboR_CV_data` which
 #' contains metabolomics profile in long data format and `CV_table` with
 #' coefficient variation calculated for QC samples.
@@ -19,7 +15,7 @@
 #' @export handle_LOD
 #'
 
-handle_LOD <- function(LOD_data, LOD_threshold = 0.3) {
+handle_LOD <- function(LOD_data) {
 
   clinical_data <- attr(LOD_data, "clinical_data")
 
@@ -46,6 +42,10 @@ handle_LOD <- function(LOD_data, LOD_threshold = 0.3) {
 #' under the limit of detection is greater or equal to provided threshold.
 #'
 #' @inheritParams handle_LOD
+#'
+#' @param LOD_threshold a value from 0 to 1 denoting threshold of fraction of
+#' LOD in metabolites from the sample. Each metabolite with  <LOD ratio
+#' equal or greater than \code{LOD_threshold} will be removed from the data.
 #'
 #' @export remove_sparse_metabolites
 
