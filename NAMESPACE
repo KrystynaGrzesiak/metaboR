@@ -2,7 +2,6 @@
 
 export(analyze)
 export(calculate_CV)
-export(check_normality)
 export(get_CV_to_remove)
 export(handle_LOD)
 export(read_LOD_table)

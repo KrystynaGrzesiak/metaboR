@@ -1,11 +1,11 @@
 # MetaboCrates - R Package for Biocrates Metabolomics Data
 
-MetaboCrates is designed for early analysis of data obtained from Biocrates kits. It simplifies and streamlines the data processing workflow, allowing you to efficiently analyze metabolite data. Here's a brief overview of its key features:
+MetaboCrates is designed for early analysis of data obtained from Biocrates® kits. It simplifies and streamlines the data processing workflow, allowing you to efficiently analyze metabolite data. Here's a brief overview of its key features:
 
 
 ## Features
 
-**1. Data Import:** Easily import metabolomics data generated from Biocrates platforms.
+**1. Data Import:** Easily import metabolomics data generated from Biocrates® platforms.
 
 **2. Preprocessing:** Perform data preprocessing tasks such as metabolites selection and <LOD imputation. 
 

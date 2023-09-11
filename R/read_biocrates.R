@@ -28,11 +28,23 @@
 #'
 
 
-read_biocrates <- function(path, keep_cols = "none", clinical_data = NULL) {
+read_biocrates <- function(path, keep_cols = "none") {
 
   if(!file.exists(path))
     stop(paste0("The file ", path, " does not exist.
                 You probably provided wrong path."))
+
+  read_biocrates_raw(path, keep_cols)
+}
+
+
+#' Read Biocrates data
+#'
+#' @keywords internal app
+#' @noRd
+#'
+
+read_biocrates_raw <- function(path, keep_cols = "none") {
 
   dat <- as.data.table(read_xlsx(path, skip = 1))
 
@@ -59,29 +71,16 @@ read_biocrates <- function(path, keep_cols = "none", clinical_data = NULL) {
   }),  by = `Plate Bar Code`]
 
   LOD_table <- melt(LOD_table, id.vars = "Plate Bar Code",
-       variable.name = "Compound", value.name = "Value")
+                    variable.name = "Compound", value.name = "Value")
 
   clinical_to_add <- dat[, ..cols_to_save]
-
-  if(!is.null(clinical_data)){
-    clinical_data <- validate_metaboR_clinical(clinical_data)
-    subject_id <- attr(clinical_data, "subject_id")
-    clinical_to_add <- merge(clinical_data,
-                             clinical_to_add,
-                             by.x = subject_id,
-                             by.y = "Sample_ID")
-  } else {
-    clinical_data <- metaboR_clinical(clinical_to_add,
-                                      subject_id = "Sample_ID")
-  }
 
   dat <- dat[ , .SD, .SDcols = !cols_to_remove]
   setkey(dat, Sample_ID)
 
   metaboR_LOD_data(dat,
                    type = c("targeted", "biocrates"),
-                   LOD_table = LOD_table,
-                   clinical_data = clinical_data)
+                   LOD_table = LOD_table)
 }
 
 

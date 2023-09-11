@@ -21,4 +21,4 @@ Imports:
     readxl,
     stringr
 LazyData: true
-RoxygenNote: 7.2.1
+RoxygenNote: 7.2.3
