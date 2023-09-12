@@ -24,7 +24,7 @@ display_navigation_bar <- function(steps) {
     tags$script(src = "navigation.js"),
     tags$footer(
       align = "center",
-      style = "position:absolute; bottom:0; width:95%; height:30px; color: white; padding: 100px; z-index: 1000;",
+      style = "position:absolute; bottom:0; width:95%; height:30px; color: white; padding: 60px; z-index: 1000;",
       column(
         1,
         align = "center",
@@ -48,6 +48,11 @@ display_navigation_bar <- function(steps) {
 
 ui_content_about <- function() {
   tagList(
+    tags$footer(
+      align = "right",
+      style = "position:absolute; bottom:0; width:99%; height:30px; padding: 110px;",
+      HTML("<img src='logo.png' style='height: 100px'>"),
+    ),
     fluidRow(
       column(1,
              align = "center",
@@ -67,6 +72,20 @@ ui_content_about <- function() {
     h4(HTML("<b> 5. Summary Statistics:</b> Generate summary statistics and visualizations to quickly understand your metabolomics data.")),
     h4(HTML("<b> 5. Download Results:</b> Download processed data, summary statistics, and share with colleagues.")),
     h4(HTML("<b> 5. Save Your Progress:</b> Save your work to resume analysis at a later time or manage multiple projects effortlessly.")),
-    h4(HTML("<b> 8. Secure and Confidential:</b> Your data privacy is our top priority."))
+    h4(HTML("<b> 8. Secure and Confidential:</b> Your data privacy is our top priority.")),
+    HTML('<hr style="border-color: black;">'),
+    h3("Contact:"),
+    h5("Words, words, words..."),
+    h3("How to cite:"),
+    h5("Citation tratata"),
+    h3("Funding and acknowledgements:"),
+    h5("We want to thank the Clinical Research Centre (Medical University of
+       Białystok) members for fruitful discussions. K.G. wants to acknowledge
+       grant no. 2021/43/O/ST6/02805 (National Science Centre). M.C. acknowledges
+       grant no. B.SUB.23.533 (Medical University of Białystok). The study was
+       supported by the Ministry of Education and Science funds within the project
+       'Excellence Initiative - Research University'. We also acknowledge the Center
+       for Artificial Intelligence at the Medical University of Białystok (funded
+       by the Ministry of Health of the Republic of Poland)."),
   )
 }

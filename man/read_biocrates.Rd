@@ -4,7 +4,7 @@
 \alias{read_biocrates}
 \title{Read Biocrates data}
 \usage{
-read_biocrates(path, keep_cols = "none", clinical_data = NULL)
+read_biocrates(path, keep_cols = "none")
 }
 \arguments{
 \item{path}{Path to the `.xlsx` file.}

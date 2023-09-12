@@ -7,7 +7,7 @@ library(metaboR)
 path <- "./inst/data/targeted/Biocrates/biocrates.xlsx"
 path1 <- "./inst/data/targeted/Biocrates/clinical.xlsx"
 
-LOD_data <- read_biocrates(path, clinical_data = read_clinical_data(path1))
+LOD_data <- read_biocrates(path)
 
 LOD_data <- remove_sparse_metabolites(LOD_data, LOD_threshold = 0.3)
 

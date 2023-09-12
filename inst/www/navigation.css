@@ -11,7 +11,7 @@
 	min-width: 10%;
 	float: left;
 	position: relative;
-	background-color: #b4cded;
+	background-color: #dce4ec;
 	-webkit-user-select: none;
 	-moz-user-select: none;
 	-ms-user-select: none;
@@ -29,7 +29,7 @@
 	height: 0;
 	border-top: 23px solid transparent;
 	border-bottom: 23px solid transparent;
-	border-left: 17px solid #b4cded;
+	border-left: 17px solid #dce4ec;
 	z-index: 2;
   transition: border-color 0.2s ease;
 }

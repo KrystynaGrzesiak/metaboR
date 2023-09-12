@@ -46,7 +46,7 @@ read_biocrates <- function(path, keep_cols = "none") {
 
 read_biocrates_raw <- function(path, keep_cols = "none") {
 
-  dat <- as.data.table(read_xlsx(path, skip = 1))
+  dat <- as.data.table(read_excel(path, skip = 1))
 
   LOD_table <- dat[str_extract(`Measurement Time`, "LOD") == "LOD", 20:ncol(dat)]
   setnames(LOD_table, old = c("Measurement Time"), new = c("Plate Bar Code"))
@@ -54,11 +54,22 @@ read_biocrates_raw <- function(path, keep_cols = "none") {
 
   setnames(dat, old = c("Sample Identification"), new = c("Sample_ID"))
 
+  dat <- dat[!is.na(`Plate Bar Code`)]
+
+  samples_info <- list(
+    QC_levels = dat[`Sample Type` != "Sample", `Sample Type`],
+    Submission_Names = dat[, `Submission Name`],
+    species = unique(dat[, `Species`]),
+    OP = unique(dat[, `OP`]),
+    Material = unique(dat[, `Material`]),
+    gender = dat[, `gender`],
+    sample_type = dat[, `sample type`],
+    Sample_Volume = unique(dat[, `Sample Volume`])
+  )
+
   cols_info <- clean_biocrates(keep_cols)
   cols_to_remove <- cols_info[["cols_to_remove"]]
   cols_to_save <- c("Sample_ID", cols_info[["cols_to_save"]])
-
-  dat <- dat[!is.na(`Plate Bar Code`)]
 
   LOD_table[, `Plate Bar Code` := {
     sets <- unique(dat[["Plate Bar Code"]])
@@ -66,6 +77,7 @@ read_biocrates_raw <- function(path, keep_cols = "none") {
       sets[grepl(value, sets, fixed = TRUE)]
     })
   }]
+
   LOD_table <- LOD_table[, lapply(.SD, function(col) {
     mean(as.numeric(col))
   }),  by = `Plate Bar Code`]
@@ -79,8 +91,8 @@ read_biocrates_raw <- function(path, keep_cols = "none") {
   setkey(dat, Sample_ID)
 
   metaboR_LOD_data(dat,
-                   type = c("targeted", "biocrates"),
-                   LOD_table = LOD_table)
+                   LOD_table = LOD_table,
+                   samples_info = samples_info)
 }
 
 
