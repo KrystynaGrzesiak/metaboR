@@ -17,7 +17,11 @@ library(DT)
 
 source("supp/ui_supp.R")
 source("supp/custom_dt.R")
+source("supp/navigation_modules.R")
 
+
+app_panels <- c("upload_data", "remove_metabolites", "complete_LOD",
+                "quality_control", "summary", "download")
 
 
 ui <- navbarPage(
@@ -42,10 +46,7 @@ ui <- navbarPage(
                "upload_data",
                column(3,
                       style = "background-color:#F6FBFC; border-right: 1px solid",
-                      br(),
-                      br(),
-                      br(),
-                      h3("Upload new data"),
+                      h4("Upload new data"),
                       fileInput(
                         inputId = 'new_data_path',
                         label = "Upload Biocrates® file.",
@@ -53,21 +54,13 @@ ui <- navbarPage(
                         accept = c(".xlsx", ".xls")
                       ),
                       br(),
-                      br(),
-                      br(),
-                      br(),
-                      br(),
-                      br(),
-                      h3("... or load your previous project"),
+                      h4("... or load your previous project"),
                       fileInput(
                         inputId = 'project_path',
                         label = "Upload Excel sheet downloaded from MetaboCrates.",
                         multiple = FALSE,
                         accept = c(".xlsx", ".xls")
-                      ),
-                      br(),
-                      br(),
-                      br(),
+                      )
                ),
                column(7,
                       offset = 1,
@@ -80,7 +73,7 @@ ui <- navbarPage(
                         ),
                         tabPanel(
                           "Dataset preview",
-                          h3("You can see metabolomics matrix and LOD table below:"),
+                          h4("You can see metabolomics matrix and LOD table below:"),
                           tabsetPanel(
                             tabPanel("Metabolites",
                                      withSpinner(DT::dataTableOutput("biocrates_data"))),
@@ -88,12 +81,15 @@ ui <- navbarPage(
                           )
                         )
                       )
-
-
                )
              ),
-             tabPanel("upload_data")
-           )
+             tabPanel("remove_metabolites"),
+             tabPanel("complete_LOD"),
+             tabPanel("quality_control"),
+             tabPanel("summary"),
+             tabPanel("download")
+           ),
+
   ),
   tabPanel("Download")
 )
@@ -130,7 +126,7 @@ server <- function(input, output, session) {
 
     info <- attr(dat[["raw_data"]], "samples_info")
     content <- paste0(
-      "<h3> Study informations:</h3><br/>",
+      "<h4> Study informations:</h4>",
       "<b>Compounds:</b> ", dat[["n_cmp"]], ", <br/> ",
       "<b>Samples:</b> ", dat[["n_smp"]], ", <br/> ",
       "<b>QC samples:</b> ", length(info[["QC_levels"]]), ", <br/> ",
@@ -164,8 +160,8 @@ server <- function(input, output, session) {
       geom_bar_interactive(stat = "identity", fill = "#95a5a6") +
       theme_minimal() +
       ylab("N") +
-      theme(text = element_text(size = 18),
-            axis.text = element_text(size = 12),
+      theme(text = element_text(size = 16),
+            axis.text = element_text(size = 10),
             axis.title.x = element_text(margin = margin(t = 20)))
 
 
@@ -173,24 +169,24 @@ server <- function(input, output, session) {
       geom_bar_interactive(stat = "identity", fill = "#18bc9c") +
       theme_minimal() +
       ylab("") +
-      theme(text = element_text(size = 18),
-            axis.text = element_text(size = 12),
+      theme(text = element_text(size = 16),
+            axis.text = element_text(size = 10),
             axis.title.x = element_text(margin = margin(t = 20)))
 
     p3 <- ggplot(gender, aes(x = `gender`, y = N, tooltip = N)) +
       geom_bar_interactive(stat = "identity", fill = "#90bc9c") +
       theme_minimal() +
       ylab("") +
-      theme(text = element_text(size = 18),
-            axis.text = element_text(size = 12),
+      theme(text = element_text(size = 16),
+            axis.text = element_text(size = 10),
             axis.title.x = element_text(margin = margin(t = 20)))
 
     plt <- p1 + p2 + p3 +  plot_layout(widths = c(1, 2, 1))
 
     girafe(code = print(plt),
            options = list(opts_sizing(rescale = FALSE)),
-           width_svg = 14,
-           height_svg = 6)
+           width_svg = 11,
+           height_svg = 4)
 
 
   })
@@ -200,15 +196,29 @@ server <- function(input, output, session) {
   output[["biocrates_data"]] <- DT::renderDataTable({
     req(dat[["raw_data"]])
     custom_datatable(dat[["raw_data"]],
-                     scrollY = 550,
+                     scrollY = 300,
                      paging = FALSE)
   })
 
   output[["LOD_table"]] <- DT::renderDataTable({
     req(dat[["raw_data"]])
     custom_datatable(attr(dat[["raw_data"]], "LOD_table"),
-                     scrollY = 550,
+                     scrollY = 400,
                      paging = FALSE)
+  })
+
+  ## navigation
+
+  observeEvent(input[["next"]], {
+    updateTabsetPanel(session,
+                      inputId = "app_panel",
+                      selected = get_next_panel(input[["app_panel"]]))
+  })
+
+  observeEvent(input[["prev"]], {
+    updateTabsetPanel(session,
+                      inputId = "app_panel",
+                      selected = get_prev_panel(input[["app_panel"]]))
   })
 
 

@@ -2,13 +2,13 @@
 /* Breadcrups CSS */
 
 .arrow-steps .step {
-	font-size: 14px;
+	font-size: 11px;
 	text-align: center;
 	color: #666;
 	cursor: default;
 	margin: 0 3px;
-	padding: 13px 13px 13px 50px;
-	min-width: 10%;
+	padding: 11px 11px 11px 50px;
+	min-width: 40px;
 	float: left;
 	position: relative;
 	background-color: #dce4ec;
@@ -27,8 +27,8 @@
 	right: -17px;
 	width: 0;
 	height: 0;
-	border-top: 23px solid transparent;
-	border-bottom: 23px solid transparent;
+	border-top: 19px solid transparent;
+	border-bottom: 19px solid transparent;
 	border-left: 17px solid #dce4ec;
 	z-index: 2;
   transition: border-color 0.2s ease;
@@ -82,36 +82,35 @@
 
 
 
-
-
-a {
-  font-size: 14px;
-  display: block;
-  width: 100%;
-  height: 100%;
-  border: none;
-  padding: 14px 20px;
+.prev {
+  background-color: #fff;
+  border-radius: 4px;
+  font-size: 12px;
+  padding: 10px 24px;
   cursor: pointer;
   text-align: center;
+  border:none;
+  vertical-align: middle;
 }
 
-a:hover {
-  background-color: #ddd;
-  color: black;
-}
-
-.prev {
+.next:hover {
   background-color: #f1f1f1;
-  color: black;
-  cursor: pointer;
-  border-radius: 4px;
+  transition: 0.7s;
+}
+
+.prev:hover {
+  background-color: #f1f1f1;
+  transition: 0.7s;
 }
 
 
 .next {
-  background-color: #f1f1f1;
-  color: black;
-  cursor: pointer;
+  background-color: #fff;
   border-radius: 4px;
+  font-size: 12px;
+  padding: 10px 24px;
+  cursor: pointer;
+  text-align: center;
+  border:none;
+  vertical-align: middle;
 }
-
