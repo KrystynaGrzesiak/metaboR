@@ -11,7 +11,7 @@
 	min-width: 40px;
 	float: left;
 	position: relative;
-	background-color: #dce4ec;
+	background-color: #e0d78b;
 	-webkit-user-select: none;
 	-moz-user-select: none;
 	-ms-user-select: none;
@@ -29,7 +29,7 @@
 	height: 0;
 	border-top: 19px solid transparent;
 	border-bottom: 19px solid transparent;
-	border-left: 17px solid #dce4ec;
+	border-left: 17px solid #e0d78b;
 	z-index: 2;
   transition: border-color 0.2s ease;
 }
@@ -72,11 +72,11 @@
 
 .arrow-steps .step.current {
 	color: #fff;
-	background-color: #232B39;
+	background-color: #3e3f3a;
 }
 
 .arrow-steps .step.current:after {
-	border-left: 17px solid #232B39;
+	border-left: 17px solid #3e3f3a;
 }
 
 

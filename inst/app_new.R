@@ -26,7 +26,7 @@ app_panels <- c("upload_data", "remove_metabolites", "complete_LOD",
 
 ui <- navbarPage(
   title = "Metabocrates",
-  theme = shinytheme("flatly"),
+  theme = shinytheme("sandstone"),
 
   tabPanel("About", ui_content_about()),
   tabPanel("Run",
@@ -45,7 +45,7 @@ ui <- navbarPage(
              tabPanel(
                "upload_data",
                column(3,
-                      style = "background-color:#F6FBFC; border-right: 1px solid",
+                      style = "background-color:#f8f5f0; border-right: 1px solid",
                       h4("Upload new data"),
                       fileInput(
                         inputId = 'new_data_path',
@@ -62,47 +62,68 @@ ui <- navbarPage(
                         accept = c(".xlsx", ".xls")
                       )
                ),
-               column(7,
-                      offset = 1,
+               column(9,
                       tabsetPanel(
                         tabPanel(
                           "Data summary",
+                          br(),
                           htmlOutput("samples_info"),
                           br(),
-                          girafeOutput("samples_info_plt", width = "1000px", height = "400px" )
+                          withSpinner(
+                            girafeOutput("samples_info_plt",
+                                         width = "1000px",
+                                         height = "400px" ),
+                            color = "#3e3f3a")
                         ),
                         tabPanel(
                           "Dataset preview",
+                          br(),
                           h4("You can see metabolomics matrix and LOD table below:"),
+                          br(),
                           tabsetPanel(
-                            tabPanel("Metabolites",
-                                     withSpinner(DT::dataTableOutput("biocrates_data"))),
-                            tabPanel("LOD values",  withSpinner(DT::dataTableOutput("LOD_table")))
+                            tabPanel(
+                              "Metabolites",
+                              withSpinner(DT::dataTableOutput("biocrates_data"),
+                                          color = "#3e3f3a")
+                            ),
+                            tabPanel(
+                              "LOD values",
+                              withSpinner(DT::dataTableOutput("LOD_table"),
+                                          color = "#3e3f3a")
+                            )
                           )
                         )
                       )
                )
              ),
              tabPanel("remove_metabolites",
-                      column(2,
-                             align = "center",
-                             style = "background-color:#F6FBFC; border-right: 1px solid",
-                             numericInput("LOD_thresh",
-                                          "Select maximum ratio of <LOD allowed for each metabolite and click Remove button!",
-                                          value = 0.3,
-                                          min = 0,
-                                          max = 1,
-                                          step = 0.01),
+                      column(3,
+                             style = "background-color:#f8f5f0; border-right: 1px solid",
+                             h4("Here you can remove metabolites with high level of <LOD values."),
+                             br(),
+                             sliderInput("LOD_thresh",
+                                         "Select maximum ratio of <LOD allowed for each metabolite and click Remove button!",
+                                         value = 0.3,
+                                         min = 0.01,
+                                         max = 1,
+                                         step = 0.01,
+                                         ticks = FALSE),
+                             br(),
                              fluidRow(actionButton("remove_btn",
                                                    label = "Remove"),
                                       actionButton("undo_btn",
                                                    label = "Undo")),
+                             br(),
+                             h4("The following metabolites will be removed:"),
+                             br(),
                              htmlOutput("sparse_to_remove")
                       ),
-                      column(10,
-                             offset = 1,
+                      column(5,
+                             offset = 2,
+                             h4("Ratio of <LOD values per metabolite:"),
                              shinycssloaders::withSpinner(
-                               DT::dataTableOutput("LOD_data")
+                               DT::dataTableOutput("LOD_ratios_tbl"),
+                               color = "#3e3f3a"
                              )
                       )
              ),
@@ -119,6 +140,7 @@ ui <- navbarPage(
 server <- function(input, output, session) {
 
   dat <- reactiveValues()
+  tmp_vars <- reactiveValues()
 
   ##### loading data
   observeEvent(input[["new_data_path"]], {
@@ -138,6 +160,9 @@ server <- function(input, output, session) {
     dat[["raw_data"]] <- raw_data
     dat[["n_cmp"]] <- uniqueN(attr(raw_data, "LOD_table")[, Compound])
     dat[["n_smp"]] <- nrow(raw_data)
+
+    dat[["removed_LOD"]] <- copy(raw_data)
+    dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]])
   })
 
   ## info
@@ -146,71 +171,19 @@ server <- function(input, output, session) {
     req(dat[["n_smp"]])
     req(dat[["n_cmp"]])
 
-    info <- attr(dat[["raw_data"]], "samples_info")
-    content <- paste0(
-      "<h4> Study informations:</h4>",
-      "<b>Compounds:</b> ", dat[["n_cmp"]], ", <br/> ",
-      "<b>Samples:</b> ", dat[["n_smp"]], ", <br/> ",
-      "<b>QC samples:</b> ", length(info[["QC_levels"]]), ", <br/> ",
-      "<b>QC levels:</b> ", uniqueN(info[["QC_levels"]]), ", <br/> ",
-      "<b>Species: </b>", paste0(info[["species"]], collapse = ", "), ", <br/> ",
-      "<b>OP: </b>", paste0(info[["OP"]], collapse = ", "), ", <br/> ",
-      "<b>Material: </b>", paste0(info[["Material"]], collapse = ", "), ", <br/> ",
-      "<b>Sample Volume: </b>", paste0(info[["Sample_Volume"]], collapse = ", "), "."
-    )
-    HTML(content)
+    get_raw_html_content(info = attr(dat[["raw_data"]], "samples_info"),
+                         n_smp = dat[["n_smp"]],
+                         n_cmp = dat[["n_cmp"]])
   })
 
   output[["samples_info_plt"]] <- renderGirafe({
     req(dat[["raw_data"]])
-    # browser()
+
     info <- attr(dat[["raw_data"]], "samples_info")
-
-    sub_name <- data.table(`Submission Names` = info[["Submission_Names"]])[
-      , .N, by = .(`Submission Names`)
-    ]
-
-    sample_type <- data.table(`Sample Type` = info[["sample_type"]])[
-      !is.na(`Sample Type`), .N, by = .(`Sample Type`)
-    ]
-
-    gender <- data.table(`gender` = info[["gender"]])[
-      !is.na(gender), .N, by = .(`gender`)
-    ]
-
-    p1 <- ggplot(sub_name, aes(x = `Submission Names`, y = N, tooltip = N)) +
-      geom_bar_interactive(stat = "identity", fill = "#95a5a6") +
-      theme_minimal() +
-      ylab("N") +
-      theme(text = element_text(size = 16),
-            axis.text = element_text(size = 10),
-            axis.title.x = element_text(margin = margin(t = 20)))
-
-
-    p2 <- ggplot(sample_type, aes(x = `Sample Type`, y = N, tooltip = N)) +
-      geom_bar_interactive(stat = "identity", fill = "#18bc9c") +
-      theme_minimal() +
-      ylab("") +
-      theme(text = element_text(size = 16),
-            axis.text = element_text(size = 10),
-            axis.title.x = element_text(margin = margin(t = 20)))
-
-    p3 <- ggplot(gender, aes(x = `gender`, y = N, tooltip = N)) +
-      geom_bar_interactive(stat = "identity", fill = "#90bc9c") +
-      theme_minimal() +
-      ylab("") +
-      theme(text = element_text(size = 16),
-            axis.text = element_text(size = 10),
-            axis.title.x = element_text(margin = margin(t = 20)))
-
-    plt <- p1 + p2 + p3 +  plot_layout(widths = c(1, 2, 1))
-
-    girafe(code = print(plt),
+    girafe(code = print(plot_raw_info(dat[["raw_data"]])),
            options = list(opts_sizing(rescale = FALSE)),
-           width_svg = 11,
-           height_svg = 4)
-
-
+           width_svg = 14,
+           height_svg = 5)
   })
 
 
@@ -218,14 +191,14 @@ server <- function(input, output, session) {
   output[["biocrates_data"]] <- DT::renderDataTable({
     req(dat[["raw_data"]])
     custom_datatable(dat[["raw_data"]],
-                     scrollY = 300,
+                     scrollY = 550,
                      paging = FALSE)
   })
 
   output[["LOD_table"]] <- DT::renderDataTable({
     req(dat[["raw_data"]])
     custom_datatable(attr(dat[["raw_data"]], "LOD_table"),
-                     scrollY = 400,
+                     scrollY = 550,
                      paging = FALSE)
   })
 
@@ -245,6 +218,43 @@ server <- function(input, output, session) {
 
 
   ### removing LOD
+
+
+  output[["LOD_ratios_tbl"]] <-  DT::renderDataTable({
+    custom_datatable(dat[["LOD_ratios"]], scrollY = 550, paging = FALSE)
+  })
+
+
+  to_remove <- reactive({
+    metaboR:::get_sparse_columns(dat[["LOD_ratios"]], input[["LOD_thresh"]])
+  })
+
+
+  output[["sparse_to_remove"]] <- renderUI({
+    get_remove_html_content(to_remove())
+  })
+
+
+  observeEvent(input[["remove_btn"]], {
+    req(dat[["removed_LOD"]])
+
+    dat[["to_remove_LOD"]] <- to_remove()
+
+    if(length(to_remove()) > 0) {
+      dat[["removed_LOD"]] <- dat[["removed_LOD"]][ , (to_remove()) := NULL ]
+      dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]])
+    }
+  })
+
+
+  observeEvent(input[["undo_btn"]], {
+    req(dat[["raw_data"]])
+    req(dat[["removed_LOD"]])
+
+    dat[["to_remove_LOD"]] <- NULL
+    dat[["removed_LOD"]] <- copy(dat[["raw_data"]])
+    dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]])
+  })
 
 
 

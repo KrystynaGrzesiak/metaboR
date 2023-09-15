@@ -43,5 +43,16 @@ dat[, `:=`(p_change = 100 * (Average - unique(Average[get(group_col) == control]
 
 
 
+#############################
+
+
+LOD_ratios <- melt(
+  LOD_data[, lapply(.SD, function(ith_col) {
+    mean(ith_col == "< LOD", na.rm = TRUE)
+  })],
+  measure.vars = colnames(LOD_data)
+)
+
+
 
 

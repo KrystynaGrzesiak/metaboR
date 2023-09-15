@@ -1,20 +1,18 @@
 
 
-
 display_bar <- function(steps) {
-  tagList(
-    HTML(
-      paste0(
-        '<div class="container">
+  tagList(HTML(paste0(
+    '<div class="container">
          <div class="wrapper">
          <div class="arrow-steps clearfix">',
-        '<div class="step current"> <span> ', steps[1],' </span> </div>',
-        paste0('<div class="step"> <span> ', steps[-1], ' </span> </div>', collapse = " "),
-        '</div>
+    '<div class="step current"> <span> ', steps[1],' </span> </div>',
+    paste0('<div class="step"> <span> ',
+           steps[-1],
+           ' </span> </div>',
+           collapse = " "),
+    '</div>
          </div>
-         </div>')
-    )
-  )
+         </div>')))
 }
 
 
@@ -25,32 +23,17 @@ display_navigation_bar <- function(steps) {
     tags$footer(
       align = "center",
       style = "position:absolute; bottom:0; width:95%; height:30px; color: white; padding: 60px; z-index: 1000;",
-
-      fluidRow(
-        column(
-          1,
-          align = "center",
-          tags$button(id = "prev",
-                      type="button",
-                      class="btn action-button prev",
-                      HTML('<a type="button">Previous &raquo;</a>')),
-        ),
-        column(
-          10,
-          align = "center",
-          display_bar(steps)
-        ),
-        column(
-          1,
-          align = "center",
-          tags$button(id = "next",
-                      type="button",
-                      class="btn action-button next",
-                      HTML('<a type="button">Next &raquo;</a>')),
-          # HTML('<div class="nav clearfix"> <a type="button" id="next" class="next">Next &raquo;</a> </div>')
-        )
-      )
-
+      fluidRow(column(1, align = "center",
+                      tags$button(id = "prev",
+                                  type="button",
+                                  class="btn action-button prev",
+                                  HTML('<a type="button">Previous &raquo;</a>'))),
+               column(10, align = "center", display_bar(steps)),
+               column(1, align = "center",
+                      tags$button(id = "next",
+                                  type="button",
+                                  class="btn action-button next",
+                                  HTML('<a type="button">Next &raquo;</a>'))))
     )
   )
 }
@@ -61,19 +44,15 @@ ui_content_about <- function() {
   tagList(
     tags$footer(
       align = "right",
-      style = "position:absolute; bottom:0; width:99%; height:30px; padding: 0px 0px 0px 300px;",
+      style = "position:absolute; bottom:0; width:99%; height:30px; padding: 0px 0px 100px 100px;",
       HTML("<img src='logo.png' style='height: 100px'>"),
     ),
-    fluidRow(
-      column(1,
-             align = "center",
-             HTML("<img src='logo-placeholder.png' height='110px'>"),
-      ),
-      column(11,
-             h3("Welcome to MetaboCrates!"),
-             h4("Solution for early analysis of data from Biocrates® kits."),
-      ),
-    ),
+    fluidRow(column(1,
+                    align = "center",
+                    HTML("<img src='logo-placeholder.png' height='110px'>")),
+             column(11,
+                    h3("Welcome to MetaboCrates!"),
+                    h4("Solution for early analysis of data from Biocrates® kits."))),
     HTML('<hr style="border-color: black;">'),
     h4("Key Features:"),
     h5(HTML("<b> 1. Seamless Integration:</b> Easily upload your Biocrates® data files.")),
@@ -97,6 +76,24 @@ ui_content_about <- function() {
        supported by the Ministry of Education and Science funds within the project
        'Excellence Initiative - Research University'. We also acknowledge the Center
        for Artificial Intelligence at the Medical University of Białystok (funded
-       by the Ministry of Health of the Republic of Poland)."),
+       by the Ministry of Health of the Republic of Poland).")
   )
 }
+
+
+get_raw_html_content <- function(info, n_smp, n_cmp)
+  HTML(paste0(
+    "<h4> Study informations:</h4><br/>",
+    "<b>Compounds:</b> ", n_cmp, ", <br/> ",
+    "<b>Samples:</b> ", n_smp, ", <br/> ",
+    "<b>QC samples:</b> ", length(info[["QC_levels"]]), ", <br/> ",
+    "<b>QC levels:</b> ", uniqueN(info[["QC_levels"]]), ", <br/> ",
+    "<b>Species: </b>", paste0(info[["species"]], collapse = ", "), ", <br/> ",
+    "<b>OP: </b>", paste0(info[["OP"]], collapse = ", "), ", <br/> ",
+    "<b>Material: </b>", paste0(info[["Material"]], collapse = ", "), ", <br/> ",
+    "<b>Sample Volume: </b>", paste0(info[["Sample_Volume"]], collapse = ", "), "."
+  ))
+
+
+get_remove_html_content <- function(to_remove)
+  HTML(ifelse(length(to_remove) > 0, paste(to_remove, collapse = ", "), "none"))

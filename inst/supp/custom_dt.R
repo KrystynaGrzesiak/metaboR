@@ -8,5 +8,6 @@ custom_datatable <- function(dat, paging = TRUE, scrollY = 380) {
                                scrollX = TRUE,
                                scrollY = scrollY,
                                pageLength = 15,
-                               searching = FALSE))
+                               searching = FALSE),
+                class = "display nowrap",)
 }
