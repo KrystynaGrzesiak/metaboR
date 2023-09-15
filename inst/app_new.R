@@ -83,7 +83,29 @@ ui <- navbarPage(
                       )
                )
              ),
-             tabPanel("remove_metabolites"),
+             tabPanel("remove_metabolites",
+                      column(2,
+                             align = "center",
+                             style = "background-color:#F6FBFC; border-right: 1px solid",
+                             numericInput("LOD_thresh",
+                                          "Select maximum ratio of <LOD allowed for each metabolite and click Remove button!",
+                                          value = 0.3,
+                                          min = 0,
+                                          max = 1,
+                                          step = 0.01),
+                             fluidRow(actionButton("remove_btn",
+                                                   label = "Remove"),
+                                      actionButton("undo_btn",
+                                                   label = "Undo")),
+                             htmlOutput("sparse_to_remove")
+                      ),
+                      column(10,
+                             offset = 1,
+                             shinycssloaders::withSpinner(
+                               DT::dataTableOutput("LOD_data")
+                             )
+                      )
+             ),
              tabPanel("complete_LOD"),
              tabPanel("quality_control"),
              tabPanel("summary"),
@@ -220,6 +242,11 @@ server <- function(input, output, session) {
                       inputId = "app_panel",
                       selected = get_prev_panel(input[["app_panel"]]))
   })
+
+
+  ### removing LOD
+
+
 
 
 
