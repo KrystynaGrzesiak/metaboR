@@ -27,7 +27,7 @@ display_navigation_bar <- function(steps) {
                       tags$button(id = "prev",
                                   type="button",
                                   class="btn action-button prev",
-                                  HTML('<a type="button">Previous &raquo;</a>'))),
+                                  HTML('<a type="button">Previous  &raquo;</a>'))),
                column(10, align = "center", display_bar(steps)),
                column(1, align = "center",
                       tags$button(id = "next",

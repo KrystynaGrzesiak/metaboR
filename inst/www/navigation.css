@@ -1,95 +1,86 @@
-
-/* Breadcrups CSS */
-
 .arrow-steps .step {
-	font-size: 11px;
-	text-align: center;
-	color: #666;
-	cursor: default;
-	margin: 0 3px;
-	padding: 11px 11px 11px 50px;
-	min-width: 40px;
-	float: left;
-	position: relative;
-	background-color: #e0d78b;
-	-webkit-user-select: none;
-	-moz-user-select: none;
-	-ms-user-select: none;
-	user-select: none;
+  font-size: 1.4rem; /* Use relative units for font size */
+  text-align: center;
+  color: #666;
+  cursor: default;
+  margin: 0 0.4%; /* Use percentage-based margin */
+  padding: 1.4rem 1% 1.4rem 4%; /* Use percentage-based padding */
+  min-width: 10%; /* Use percentage-based minimum width */
+  float: left;
+  position: relative;
+  background-color: #e3e7af;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
   transition: background-color 0.2s ease;
 }
 
 .arrow-steps .step:after,
 .arrow-steps .step:before {
-	content: " ";
-	position: absolute;
-	top: 0;
-	right: -17px;
-	width: 0;
-	height: 0;
-	border-top: 19px solid transparent;
-	border-bottom: 19px solid transparent;
-	border-left: 17px solid #e0d78b;
-	z-index: 2;
+  content: " ";
+  position: absolute;
+  top: 0;
+  right: -19px; /* Use percentage-based right position */
+  width: 0;
+  height: 0;
+  border-top: 2.4rem solid transparent; /* Use relative units for border */
+  border-bottom: 2.4rem solid transparent; /* Use relative units for border */
+  border-left: 1.9rem solid #e3e7af; /* Use relative units for border */
+  z-index: 2;
   transition: border-color 0.2s ease;
 }
 
 .arrow-steps .step:before {
-	right: auto;
-	left: 0;
-	border-left: 17px solid #fff;
-	z-index: 0;
+  right: auto;
+  left: 0;
+  border-left: 1.9rem solid #fff; /* Use relative units for border */
+  z-index: 0;
 }
 
 .arrow-steps .step:first-child:before {
-	border: none;
+  border: none;
 }
 
 .arrow-steps .step:first-child {
-	border-top-left-radius: 4px;
-	border-bottom-left-radius: 4px;
+  border-top-left-radius: 4px;
+  border-bottom-left-radius: 4px;
 }
 
 .arrow-steps .step span {
-	position: relative;
+  position: relative;
 }
 
 .arrow-steps .step span:before {
-	opacity: 0;
-	content: "✔";
-	position: absolute;
-	top: -2px;
-	left: -20px;
+  opacity: 0;
+  content: "✔";
+  position: absolute;
+  top: -10%;
+  left: -20px;
 }
 
 .arrow-steps .step.done span:before {
-	opacity: 1;
-	-webkit-transition: opacity 0.3s ease 0.5s;
-	-moz-transition: opacity 0.3s ease 0.5s;
-	-ms-transition: opacity 0.3s ease 0.5s;
-	transition: opacity 0.3s ease 0.5s;
+  opacity: 1;
+  transition: opacity 0.3s ease 0.5s;
 }
 
 .arrow-steps .step.current {
-	color: #fff;
-	background-color: #3e3f3a;
+  color: #fff;
+  background-color: #3e3f3a;
 }
 
 .arrow-steps .step.current:after {
-	border-left: 17px solid #3e3f3a;
+  border-left: 1.9rem solid #3e3f3a; /* Use relative units for border */
 }
-
-
-
 
 .prev {
   background-color: #fff;
   border-radius: 4px;
-  font-size: 12px;
-  padding: 10px 24px;
+  font-size: 1.41rem; /* Use relative units for font size */
+  padding: 0.75rem 2%; /* Use percentage-based padding */
   cursor: pointer;
   text-align: center;
-  border:none;
+  border: none;
   vertical-align: middle;
 }
 
@@ -103,14 +94,13 @@
   transition: 0.7s;
 }
 
-
 .next {
   background-color: #fff;
   border-radius: 4px;
-  font-size: 12px;
-  padding: 10px 24px;
+  font-size: 1.4rem; /* Use relative units for font size */
+  padding: 0.75rem 2%; /* Use percentage-based padding */
   cursor: pointer;
   text-align: center;
-  border:none;
+  border: none;
   vertical-align: middle;
 }
