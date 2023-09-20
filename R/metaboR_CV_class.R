@@ -15,30 +15,22 @@ validate_metaboR_CV_data <- function(CV_data) {
 ### HELPER
 
 metaboR_CV_data <- function(metabo_matrix,
-                            type,
-                            CV_table,
-                            clinical_data = NULL) {
+                            CV_table) {
 
   metabo_matrix <- as.data.table(metabo_matrix)
   CV_table <- as.data.table(CV_table)
 
   validate_metaboR_CV_data(new_metaboR_CV_data(metabo_matrix = metabo_matrix,
-                                               type = type,
-                                               CV_table = CV_table,
-                                               clinical_data = clinical_data))
+                                               CV_table = CV_table))
 }
 
 
 ## CREATOR
 
 new_metaboR_CV_data <- function(metabo_matrix,
-                                type,
-                                CV_table,
-                                clinical_data = NULL){
+                                CV_table){
 
   structure(metabo_matrix,
             class = c("metaboR_CV_data", "data.table", "data.frame"),
-            type = type,
-            CV_table = CV_table,
-            clinical_data = clinical_data)
+            CV_table = CV_table)
 }

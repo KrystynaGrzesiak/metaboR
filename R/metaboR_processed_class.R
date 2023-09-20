@@ -3,7 +3,6 @@
 
 validate_metaboR_processed <- function(processed_data) {
 
-
   processed_data
 
 }
@@ -16,20 +15,16 @@ metaboR_processed <- function(metabo_matrix,
 
   metabo_matrix <- as.data.table(metabo_matrix)
 
-  validate_metaboR_processed(new_metaboR_processed(metabo_matrix = metabo_matrix,
-                                                   type = type,
-                                                   clinical_data = clinical_data))
+  validate_metaboR_processed(
+    new_metaboR_processed(metabo_matrix = metabo_matrix)
+  )
 }
 
 
 ## CREATOR
 
-new_metaboR_processed <- function(metabo_matrix,
-                                  type,
-                                  clinical_data = NULL){
+new_metaboR_processed <- function(metabo_matrix){
 
   structure(metabo_matrix,
-            class = c("metaboR_processed", "data.table", "data.frame"),
-            type = type,
-            clinical_data = clinical_data)
+            class = c("metaboR_processed", "data.table", "data.frame"))
 }

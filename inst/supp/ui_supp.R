@@ -96,4 +96,9 @@ get_raw_html_content <- function(info, n_smp, n_cmp)
 
 
 get_remove_html_content <- function(to_remove)
-  HTML(ifelse(length(to_remove) > 0, paste(to_remove, collapse = ", "), "none"))
+  HTML(ifelse(length(to_remove) > 0,
+              paste0(paste(to_remove, collapse = ", "),
+                     "<br/><br/> Total: ",
+                     length(to_remove),
+                     " metabolites."),
+              "none"))

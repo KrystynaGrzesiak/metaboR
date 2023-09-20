@@ -4,13 +4,15 @@
 \alias{get_CV_to_remove}
 \title{Get metabolites with high CV}
 \usage{
-get_CV_to_remove(CV_data, CV_threshold = 30)
+get_CV_to_remove(CV_data, CV_threshold = 30, QC_type = "QC Level 2")
 }
 \arguments{
 \item{CV_data}{an object of metaboR_CV_data class.}
 
 \item{CV_threshold}{a percentage threshold value of coefficient variation.
-This function will return the names of metabolites CV value larger than
+This function will return the names of metabolites CV value larger than}
+
+\item{QC_type}{character name of QC level referential while removing compounds.
 \code{CV_threshold}.}
 }
 \description{

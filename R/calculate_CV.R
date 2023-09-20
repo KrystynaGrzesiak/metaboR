@@ -39,23 +39,11 @@ calculate_CV <- function(QC_data) {
 #'
 
 remove_high_CV <- function(CV_data, metabolites) {
-  type <- attr(CV_data, "type")
-  clinical_data <- attr(CV_data, "clinical_data")
 
-  metabo_matrix <- CV_data[!(Compound %in% metabolites)]
+  CV_data <- CV_data[!(Compound %in% metabolites), ]
+  attr(CV_data, "CV_table") <- attr(CV_data, "CV_table")[!(Compound %in% metabolites), ]
 
-  # LC and GC untargeted
-  if(type[1] == "untargeted")
-    return(metaboR_imputation())
-
-  # GC targeted
-  if(type[2] == "GC")
-    return(metaboR_derivatives())
-
-  # biocrates and LC targeted left
-  metaboR_processed(metabo_matrix,
-                    type = type,
-                    clinical_data = clinical_data)
+  CV_data
 
 }
 
@@ -68,13 +56,14 @@ remove_high_CV <- function(CV_data, metabolites) {
 #' @param CV_data an object of metaboR_CV_data class.
 #' @param CV_threshold a percentage threshold value of coefficient variation.
 #' This function will return the names of metabolites CV value larger than
+#' @param QC_type character name of QC level referential while removing compounds.
 #' \code{CV_threshold}.
 #'
 #' @export get_CV_to_remove
 #'
 
-get_CV_to_remove <- function(CV_data, CV_threshold = 30) {
+get_CV_to_remove <- function(CV_data, CV_threshold = 30, QC_type = "QC Level 2") {
   CV_table <- attr(CV_data, "CV_table")
-  as.vector(CV_table[`QC Level 2` >= CV_threshold, Compound])
+  as.vector(CV_table[get(QC_type) >= CV_threshold, Compound])
 }
 
