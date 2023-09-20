@@ -67,7 +67,7 @@ ui_content_about <- function() {
     h4("Contact:"),
     h5("Words, words, words..."),
     h4("How to cite:"),
-    h5("Citation tratata"),
+    h5("Citation: "),
     h4("Funding and acknowledgements:"),
     h5("We want to thank the Clinical Research Centre (Medical University of
        Białystok) members for fruitful discussions. K.G. wants to acknowledge
