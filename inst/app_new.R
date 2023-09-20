@@ -6,6 +6,7 @@ library(shinyWidgets)
 library(ggplot2)
 library(ggiraph)
 library(patchwork)
+library(ggfortify)
 
 library(metaboR)
 
@@ -251,7 +252,16 @@ ui <- navbarPage(
                      color = "#3e3f3a"
                    )
             )
-          )
+          ),
+          tabPanel(
+            "Principal Component Analysis",
+            column(6, offset = 3,
+                   shinycssloaders::withSpinner(
+                     plotOutput("PCA_QC"),
+                     color = "#3e3f3a"
+                   )
+            )
+          ),
         )
       ),
       tabPanel("summary"),
@@ -535,7 +545,7 @@ server <- function(input, output, session) {
     total_removing <- get_to_remove(to_remove)
 
     if(!is.null(total_removing)){
-      dat[["removed_CV"]] <- metaboR:::remove_high_CV(dat[["removed_CV"]],total_removing)
+      dat[["removed_CV"]] <- metaboR:::remove_high_CV(dat[["removed_CV"]], total_removing)
       dat[["CV_ratios"]] <- attr(dat[["removed_CV"]], "CV_table")
     }
 
@@ -544,6 +554,30 @@ server <- function(input, output, session) {
 
   output[["to_remove_CV_hand_names"]] <- renderUI({
     get_remove_html_content(unlist(to_remove_CV_by_hand()))
+  })
+
+  output[["PCA_QC"]] <- renderPlot({
+
+    plt_data <- copy(dat[["removed_LOD"]])
+    plt_data <- plt_data[`Sample Type` != "Sample", Sample_ID := paste0(Sample_ID, "_", 1:length(Sample_ID))]
+    total_removing <- get_to_remove(to_remove)
+
+    if(!is.null(total_removing)) {
+      plt_data <- plt_data[, (total_removing) := NULL ]
+    }
+
+    plt_data <- metaboR:::complete_LOD(plt_data)
+    plt_data <- dcast(plt_data, Sample_ID + `Sample Type` ~ Compound, value.var = "Value")
+    setnames(plt_data, old = "Sample Type", new = "SampleType")
+
+    pca_res <- prcomp(plt_data[, -c(1:2)])
+
+    autoplot(pca_res, data = plt_data, colour = "SampleType") +
+      theme_minimal() +
+      scale_color_manual(values = c("#f2bb05", "#dd6e42", "#18bc9c", "#3e3f3a")) +
+      geom_vline(xintercept = 0) +
+      geom_hline(yintercept = 0)
+
   })
 
 }
