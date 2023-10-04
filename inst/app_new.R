@@ -556,29 +556,69 @@ server <- function(input, output, session) {
     get_remove_html_content(unlist(to_remove_CV_by_hand()))
   })
 
-  output[["PCA_QC"]] <- renderPlot({
+
+  pca_res <- reactive({
+    req(dat[["removed_LOD"]])
 
     plt_data <- copy(dat[["removed_LOD"]])
     plt_data <- plt_data[`Sample Type` != "Sample", Sample_ID := paste0(Sample_ID, "_", 1:length(Sample_ID))]
     total_removing <- get_to_remove(to_remove)
 
+    plt_data <- metaboR:::complete_LOD(plt_data)
+
     if(!is.null(total_removing)) {
-      plt_data <- plt_data[, (total_removing) := NULL ]
+      plt_data <- plt_data[!(Compound %in% total_removing)]
     }
 
-    plt_data <- metaboR:::complete_LOD(plt_data)
     plt_data <- dcast(plt_data, Sample_ID + `Sample Type` ~ Compound, value.var = "Value")
-    setnames(plt_data, old = "Sample Type", new = "SampleType")
+    setnames(plt_data, old = "Sample Type", new = "SampleType", skip_absent = TRUE)
 
-    pca_res <- prcomp(plt_data[, -c(1:2)])
+    list(pca_res = prcomp(plt_data[, -c(1:2)]),
+         plot_data = plt_data)
 
-    autoplot(pca_res, data = plt_data, colour = "SampleType") +
+  })
+
+
+
+  output[["PCA_QC"]] <- renderPlot({
+    pca_results <- pca_res()
+
+    plt1 <- autoplot(pca_results[["pca_res"]], data = pca_results[["plot_data"]],
+                     colour = "SampleType", shape = "SampleType") +
       theme_minimal() +
       scale_color_manual(values = c("#f2bb05", "#dd6e42", "#18bc9c", "#3e3f3a")) +
       geom_vline(xintercept = 0) +
       geom_hline(yintercept = 0)
 
+    exp_var_df <- data.frame(
+      explained_variance_ratio = pca_results[["pca_res"]][["sdev"]]^2 /
+        sum(pca_results[["pca_res"]][["sdev"]]^2),
+      dimensions = as.factor(1:length(pca_results[["pca_res"]][["sdev"]]))
+    )[1:10, ]
+
+    plt2 <- ggplot(exp_var_df, aes(x = dimensions, y = explained_variance_ratio * 100)) +
+      geom_col(fill = "#90bc9c") +
+      geom_text(mapping = aes(x = dimensions,
+                               y = explained_variance_ratio * 100 + 5,
+                               label = paste0(round(explained_variance_ratio* 100, 2), "%"))) +
+      theme_minimal() +
+      ylab("variance explained (%)") +
+      ggtitle("Scree plot") +
+      xlab("Component number")
+
+    plt2 + plt1
+
   })
+
+
+
+  output[["variance_exmplained_plt"]] <- renderPlot({
+    pca_results <- pca_res()
+
+
+  })
+
+
 
 }
 
