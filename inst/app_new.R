@@ -255,9 +255,11 @@ ui <- navbarPage(
           ),
           tabPanel(
             "Principal Component Analysis",
-            column(6, offset = 3,
+            h3("Principal Component Analysis"),
+            br(),
+            column(10, offset = 1,
                    shinycssloaders::withSpinner(
-                     plotOutput("PCA_QC"),
+                     plotOutput("PCA_QC", height = "550px"),
                      color = "#3e3f3a"
                    )
             )
@@ -606,7 +608,7 @@ server <- function(input, output, session) {
       ggtitle("Scree plot") +
       xlab("Component number")
 
-    plt2 + plt1
+    plt2 + plt1 + plot_layout(widths = c(1, 2))
 
   })
 
