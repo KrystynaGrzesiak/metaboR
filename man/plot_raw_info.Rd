@@ -4,10 +4,13 @@
 \alias{plot_raw_info}
 \title{Draws plots based on raw data}
 \usage{
-plot_raw_info(LOD_data)
+plot_raw_info(LOD_data, info = NULL)
 }
 \arguments{
 \item{LOD_data}{an object of metaboR_LOD_data class.}
+
+\item{info}{by default is taken as an attribute of \code{LOD_data}. You can
+also provide a table by hand.}
 }
 \description{
 This function plots Submission Names, `Sample Type and Gender on

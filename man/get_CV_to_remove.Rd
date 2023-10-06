@@ -4,7 +4,12 @@
 \alias{get_CV_to_remove}
 \title{Get metabolites with high CV}
 \usage{
-get_CV_to_remove(CV_data, CV_threshold = 30, QC_type = "QC Level 2")
+get_CV_to_remove(
+  CV_data,
+  CV_threshold = 30,
+  QC_type = "QC Level 2",
+  CV_table = NULL
+)
 }
 \arguments{
 \item{CV_data}{an object of metaboR_CV_data class.}

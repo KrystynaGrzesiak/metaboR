@@ -48,33 +48,27 @@ read_biocrates_raw <- function(path, keep_cols = "none") {
 
   dat <- as.data.table(read_excel(path, skip = 1))
 
-  LOD_table <- dat[str_extract(`Measurement Time`, "LOD") == "LOD", 20:ncol(dat)]
+  metabolites <- colnames(dat)[(which(colnames(dat) == "Measurement Time") + 1):ncol(dat)]
+
+  LOD_table <- dat[
+    str_extract(`Measurement Time`, "LOD") == "LOD",
+    which(colnames(dat) == "Measurement Time"):ncol(dat)
+  ]
   setnames(LOD_table, old = c("Measurement Time"), new = c("Plate Bar Code"))
   LOD_table <- LOD_table[, `Plate Bar Code` := str_extract(`Plate Bar Code`, "(\\d)+")]
 
   setnames(dat, old = c("Sample Identification"), new = c("Sample_ID"))
 
-  dat <- dat[!is.na(`Plate Bar Code`)]
+  cols_to_remove <- colnames(dat)[!(colnames(dat) %in% c("Sample_ID", "Plate Bar Code", "Sample Type", metabolites))]
 
-  samples_info <- list(
-    QC_levels = dat[`Sample Type` != "Sample", `Sample Type`],
-    Submission_Names = dat[, `Submission Name`],
-    species = unique(dat[, `Species`]),
-    OP = unique(dat[, `OP`]),
-    Material = unique(dat[, `Material`]),
-    gender = dat[, `gender`],
-    sample_type = dat[, `sample type`],
-    Sample_Volume = unique(dat[, `Sample Volume`])
-  )
 
-  cols_info <- clean_biocrates(keep_cols)
-  cols_to_remove <- cols_info[["cols_to_remove"]]
-  cols_to_save <- c("Sample_ID", cols_info[["cols_to_save"]])
+  dat <- dat[!is.na(`Plate Bar Code`) & (`Sample Type` == "Sample" | grepl("QC", `Sample Type`))]
+  dat[, (cols_to_remove) := NULL]
 
   LOD_table[, `Plate Bar Code` := {
     sets <- unique(dat[["Plate Bar Code"]])
     sapply(`Plate Bar Code`, function(value) {
-      sets[grepl(value, sets, fixed = TRUE)]
+      sets[grepl(value, sets, fixed = TRUE)][1]
     })
   }]
 
@@ -85,50 +79,9 @@ read_biocrates_raw <- function(path, keep_cols = "none") {
   LOD_table <- melt(LOD_table, id.vars = "Plate Bar Code",
                     variable.name = "Compound", value.name = "Value")
 
-  clinical_to_add <- dat[, ..cols_to_save]
-
-  dat <- dat[ , .SD, .SDcols = !cols_to_remove]
   setkey(dat, Sample_ID)
 
   metaboR_LOD_data(dat,
-                   LOD_table = LOD_table,
-                   samples_info = samples_info)
+                   LOD_table = LOD_table)
 }
 
-
-#' Supplementary cleaning for biocrates data
-#'
-#' @inheritParams read_biocrates
-#'
-#' @details This function returns a character vector of names of columns to be
-#' removed from the biocrates data.
-#' @keywords internal
-#'
-
-clean_biocrates <- function(keep_cols) {
-  additional_cols <- c("Sample Bar Code", "Sample Description",
-                       "Submission Name", "Collection Date", "Species",
-                       "Material", "OP", "Org. Info", "Plate Production No.",
-                       "gender", "sample type", "Plate Note", "Well Position",
-                       "Sample Volume", "Run Number", "Injection Number",
-                       "Measurement Time")
-  if(keep_cols == "all")
-    cols_to_save <- additional_cols
-  if(keep_cols == "none")
-    cols_to_save <- c()
-
-  if(any(keep_cols %in% additional_cols)) {
-    cols_to_save <- match.arg(keep_cols, additional_cols)
-
-    if(length(cols_to_save) != length(keep_cols))
-      warning(paste("You provided wrong names. The variables",
-                    paste(setdiff(keep_cols, cols_to_save), collapse = ", "),
-                    "cannot be found in your data."))
-  }
-  cols_to_remove <- setdiff(additional_cols,
-                            cols_to_save)
-
-  list(cols_to_remove = cols_to_remove,
-       cols_to_save = cols_to_save)
-
-}

@@ -102,3 +102,27 @@ get_remove_html_content <- function(to_remove)
                      length(to_remove),
                      " metabolites."),
               "none"))
+
+
+get_remove_total_html_content <- function(to_remove_list) {
+  HTML(ifelse(length(to_remove) > 0,
+              paste0(paste(to_remove, collapse = ", "),
+                     "<br/><br/> Total: ",
+                     length(to_remove),
+                     " metabolites."),
+              "none"))
+}
+
+
+get_single_removal_content <- function(to_remove_list, remove_type) {
+  paste0("<b>", remove_type, " removal: </b>",
+         ifelse(length(to_remove_list[[remove_type]]) > 0,
+                paste0(paste(to_remove_list[[remove_type]], collapse = ", "),
+                       "<br/> Total: ",
+                       length(to_remove_list[[remove_type]]),
+                       " metabolites."),
+                "none")
+  )
+}
+
+

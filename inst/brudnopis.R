@@ -4,10 +4,11 @@ library(data.table)
 library(stringr)
 library(metaboR)
 
-path <- "./inst/data/targeted/Biocrates/biocrates.xlsx"
-path1 <- "./inst/data/targeted/Biocrates/clinical.xlsx"
+path <- "./inst/data/targeted/Biocrates/PJ_Biocrates_j.xlsx"
 
-LOD_data <- read_biocrates(path)
+read_biocrates(path)
+
+
 
 LOD_data <- remove_sparse_metabolites(LOD_data, LOD_threshold = 0.3)
 

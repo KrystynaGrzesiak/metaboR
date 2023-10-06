@@ -4,7 +4,7 @@
 \alias{complete_LOD}
 \title{complete values under the limit of detection in targeted analysis}
 \usage{
-complete_LOD(LOD_data)
+complete_LOD(LOD_data, LOD_table = NULL)
 }
 \arguments{
 \item{LOD_data}{an object of metaboR_LOD_data class.}

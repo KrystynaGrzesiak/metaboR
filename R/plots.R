@@ -4,15 +4,17 @@
 #' three elegant bar plots.
 #'
 #' @param LOD_data an object of metaboR_LOD_data class.
+#' @param info by default is taken as an attribute of \code{LOD_data}. You can
+#' also provide a table by hand.
 #'
 #' @details This function returns an ggplot2 object.
 #'
 #' @export plot_raw_info
 #'
 
-plot_raw_info <- function(LOD_data) {
-
-  info <- attr(LOD_data, "samples_info")
+plot_raw_info <- function(LOD_data, info = NULL) {
+  if(is.null(info))
+    info <- attr(LOD_data, "samples_info")
 
   sub_name <- data.table(`Submission Names` = info[["Submission_Names"]])[
     , .N, by = .(`Submission Names`)

@@ -23,11 +23,11 @@ source("supp/supplementary_shiny.R")
 
 
 
-app_panels <- c("upload_data", "remove_metabolites", "quality_control",
-                "summary", "download")
+app_panels <- c("upload_data", "remove_metabolites", "quality_control", "download")
 
 
 ui <- navbarPage(
+  id = "main_navbar",
   title = "Metabocrates",
   theme = shinytheme("sandstone"),
 
@@ -38,7 +38,6 @@ ui <- navbarPage(
       steps = c("Upload data",
                 "Remove metabolites with high LOD proportion",
                 "Quality control",
-                "Summary statistics",
                 "Download")
     ),
 
@@ -68,33 +67,19 @@ ui <- navbarPage(
                )
         ),
         column(9,
+               h3("Dataset preview"),
+               h4("You can see metabolomics matrix and LOD table below:"),
+               br(),
                tabsetPanel(
                  tabPanel(
-                   "Data summary",
-                   br(),
-                   htmlOutput("samples_info"),
-                   br(),
-                   withSpinner(
-                     girafeOutput("samples_info_plt"),
-                     color = "#3e3f3a")
+                   "Metabolites",
+                   withSpinner(DT::dataTableOutput("biocrates_data"),
+                               color = "#3e3f3a")
                  ),
                  tabPanel(
-                   "Dataset preview",
-                   br(),
-                   h4("You can see metabolomics matrix and LOD table below:"),
-                   br(),
-                   tabsetPanel(
-                     tabPanel(
-                       "Metabolites",
-                       withSpinner(DT::dataTableOutput("biocrates_data"),
-                                   color = "#3e3f3a")
-                     ),
-                     tabPanel(
-                       "LOD values",
-                       withSpinner(DT::dataTableOutput("LOD_table"),
-                                   color = "#3e3f3a")
-                     )
-                   )
+                   "LOD values",
+                   withSpinner(DT::dataTableOutput("LOD_table"),
+                               color = "#3e3f3a")
                  )
                )
         )
@@ -263,16 +248,36 @@ ui <- navbarPage(
                      color = "#3e3f3a"
                    )
             )
-          ),
+          )
         )
       ),
-      tabPanel("summary"),
-      tabPanel("download")
+      tabPanel("download",
+               h3("Great! Go to Download panel to download your data!"))
     ),
 
   ),
-  tabPanel("Download")
+  tabPanel("Download",
+           h2("Here you can download your results at any step of your work!"),
+           br(),
+           h3("Click the button below to download results."),
+           downloadButton("download_excel", "Download", style = "width:20%;"),
+           br(),
+           br(),
+           fluidRow(column(4,
+                           h4("Removed metabolites:"),
+                           br(),
+                           htmlOutput("to_remove_total"),
+           ))
+  )
 )
+
+
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+
 
 server <- function(input, output, session) {
 
@@ -288,40 +293,78 @@ server <- function(input, output, session) {
     path <- file[["datapath"]]
     ext <- tools::file_ext(path)
 
+    raw_data <- NULL
+
     validate(
       need(ext %in% c("xlsx", "xls"),
            paste("Please upload an .xlsx or .xls file! You provided", ext))
     )
 
-    try({ raw_data <- metaboR:::read_biocrates_raw(path) })
+    raw_data <- tryCatch(
+      expr = metaboR:::read_biocrates_raw(path),
+      error = function(e) e
+    )
+
+
+    if("error" %in% class(raw_data)) {
+      if(raw_data[["message"]] == ("You need to provide unique sample ID.
+         There are some duplicated samples in your file."))
+        sendSweetAlert(session, title = "Oops!",
+                       text = raw_data[["message"]],
+                       type = "error")
+      else
+        sendSweetAlert(session, title = "Oops!",
+                       text = "Something went wrong! Is your data valid?",
+                       type = "error")
+
+      req(dat[["raw_data"]])
+    } else {
+      sendSweetAlert(session, title = "Success!",
+                     text = "Your data is correct!",
+                     type = "success")
+    }
+
 
     dat[["raw_data"]] <- raw_data
+    dat[["LOD_table"]] <- attr(raw_data, "LOD_table")
     dat[["n_cmp"]] <- uniqueN(attr(raw_data, "LOD_table")[, Compound])
     dat[["n_smp"]] <- nrow(raw_data)
     dat[["removed_LOD"]] <- copy(raw_data)
     dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]])
     dat[["completed_data"]] <- metaboR:::handle_LOD(dat[["removed_LOD"]])
     dat[["removed_CV"]] <- dat[["completed_data"]]
+    dat[["CV_ratios_complete"]] <- attr(dat[["removed_CV"]], "CV_table")
+    dat[["CV_ratios"]] <- attr(dat[["removed_CV"]], "CV_table")
   })
 
-  ####### info
-  output[["samples_info"]] <- renderUI({
-    req(dat[["raw_data"]])
-    req(dat[["n_smp"]])
-    req(dat[["n_cmp"]])
-    get_raw_html_content(info = attr(dat[["raw_data"]], "samples_info"),
-                         n_smp = dat[["n_smp"]],
-                         n_cmp = dat[["n_cmp"]])
-  })
 
-  output[["samples_info_plt"]] <- renderGirafe({
-    req(dat[["raw_data"]])
+  observeEvent(input[["project_path"]], {
+    req(input[["project_path"]])
 
-    info <- attr(dat[["raw_data"]], "samples_info")
-    girafe(code = print(plot_raw_info(dat[["raw_data"]])),
-           options = list(opts_sizing(rescale = FALSE)),
-           width_svg = 16,
-           height_svg = 5)
+    file <- input[["project_path"]]
+    path <- file[["datapath"]]
+    ext <- tools::file_ext(path)
+
+    validate(
+      need(ext %in% c("xlsx", "xls"),
+           paste("Please upload an .xlsx or .xls file! You provided", ext))
+    )
+    try({
+      sheet_names <- setdiff(excel_sheets(path = path),
+                             c("Data", "Removed", "n_cmp", "n_smp"))
+      for(sheet in sheet_names) {
+        dat[[sheet]] <- as.data.table(read_xlsx(path, sheet = sheet))
+      }
+      project_data <- read_xlsx(path, sheet = "Data")
+      removed <- read_xlsx(path, sheet = "Removed")
+      dat[["n_cmp"]] <- unlist(read_xlsx(path, sheet = "n_cmp", col_names = FALSE))
+      dat[["n_smp"]] <- unlist(read_xlsx(path, sheet = "n_smp", col_names = FALSE))
+    })
+
+    to_remove[["LOD"]] <-  as.vector(na.omit(removed[["LOD"]]))
+    to_remove[["LOD_hand"]] <-  as.vector(na.omit(removed[["LOD_hand"]]))
+    to_remove[["CV"]] <-  as.vector(na.omit(removed[["CV"]]))
+    to_remove[["CV_hand"]] <-  as.vector(na.omit(removed[["CV_hand"]]))
   })
 
 
@@ -334,8 +377,8 @@ server <- function(input, output, session) {
   })
 
   output[["LOD_table"]] <- DT::renderDataTable({
-    req(dat[["raw_data"]])
-    custom_datatable(attr(dat[["raw_data"]], "LOD_table"),
+    req(dat[["LOD_table"]])
+    custom_datatable(dat[["LOD_table"]],
                      scrollY = 550,
                      paging = FALSE)
   })
@@ -450,16 +493,18 @@ server <- function(input, output, session) {
 
   output[["CV_tbl"]] <-  DT::renderDataTable({
     req(dat[["removed_CV"]])
+    req(dat[["CV_ratios"]])
 
     dat[["removed_CV"]] <- metaboR:::remove_high_CV(dat[["removed_CV"]], get_to_remove(to_remove))
-    dat[["CV_ratios"]] <- attr(dat[["removed_CV"]], "CV_table")
+    dat[["CV_ratios"]] <- metaboR:::remove_high_CV(dat[["CV_ratios"]], get_to_remove(to_remove))
 
     QC_levels <- colnames(dat[["CV_ratios"]])[-1]
     updateSelectInput(session,
                       inputId = "QC_type",
                       choices = QC_levels,
-                      selected = QC_levels[2])
+                      selected = "QC Level 2")
 
+    req(input[["QC_type"]])
 
     custom_datatable(setorderv(dat[["CV_ratios"]], input[["QC_type"]], order = -1),
                      scrollY = 550,
@@ -469,10 +514,12 @@ server <- function(input, output, session) {
   to_remove_CV <- reactive({
     req(input[["CV_thresh"]])
     req(input[["QC_type"]])
+    req(dat[["CV_ratios"]])
 
     metaboR:::get_CV_to_remove(dat[["removed_CV"]],
                                input[["CV_thresh"]],
-                               QC_type = input[["QC_type"]])
+                               QC_type = input[["QC_type"]],
+                               dat[["CV_ratios"]])
   })
 
 
@@ -487,7 +534,7 @@ server <- function(input, output, session) {
 
     if(length(to_remove_CV()) > 0) {
       dat[["removed_CV"]] <- metaboR:::remove_high_CV(dat[["removed_CV"]], to_remove_CV())
-      dat[["CV_ratios"]] <- attr(dat[["removed_CV"]], "CV_table")
+      dat[["CV_ratios"]] <- metaboR:::remove_high_CV(dat[["CV_ratios"]], get_to_remove(to_remove))
     }
   })
 
@@ -498,14 +545,14 @@ server <- function(input, output, session) {
 
     to_remove[["CV"]] <- NULL
     dat[["removed_CV"]] <- copy(dat[["completed_data"]])
+    dat[["CV_ratios"]] <- dat[["CV_ratios_complete"]]
 
     total_removing <- get_to_remove(to_remove)
 
     if(!is.null(total_removing)){
       dat[["removed_CV"]] <- metaboR:::remove_high_CV(dat[["removed_CV"]], total_removing)
-      dat[["CV_ratios"]] <- attr(dat[["removed_CV"]], "CV_table")
+      dat[["CV_ratios"]] <- metaboR:::remove_high_CV(dat[["CV_ratios"]], total_removing)
     }
-    dat[["CV_ratios"]] <- attr(dat[["removed_CV"]], "CV_table")
   })
 
 
@@ -533,7 +580,7 @@ server <- function(input, output, session) {
 
     if(length(to_remove_CV_by_hand()) > 0) {
       dat[["removed_CV"]] <- metaboR:::remove_high_CV(dat[["removed_CV"]], to_remove[["CV_hand"]])
-      dat[["CV_ratios"]] <- attr(dat[["removed_CV"]], "CV_table")
+      dat[["CV_ratios"]] <- metaboR:::remove_high_CV(dat[["CV_ratios"]], to_remove[["CV_hand"]])
     }
   })
 
@@ -541,17 +588,15 @@ server <- function(input, output, session) {
     req(dat[["removed_CV"]])
 
     to_remove[["CV_hand"]] <- NULL
-    dat[["removed_CV"]] <- metaboR:::remove_high_CV(copy(dat[["completed_data"]]), get_to_remove(to_remove))
-    dat[["CV_ratios"]] <- attr(dat[["removed_CV"]], "CV_table")
+    dat[["removed_CV"]] <- copy(dat[["completed_data"]])
+    dat[["CV_ratios"]] <- dat[["CV_ratios_complete"]]
 
     total_removing <- get_to_remove(to_remove)
 
     if(!is.null(total_removing)){
       dat[["removed_CV"]] <- metaboR:::remove_high_CV(dat[["removed_CV"]], total_removing)
-      dat[["CV_ratios"]] <- attr(dat[["removed_CV"]], "CV_table")
+      dat[["CV_ratios"]] <- metaboR:::remove_high_CV(dat[["CV_ratios"]], total_removing)
     }
-
-    dat[["CV_ratios"]] <- attr(dat[["removed_CV"]], "CV_table")
   })
 
   output[["to_remove_CV_hand_names"]] <- renderUI({
@@ -559,14 +604,14 @@ server <- function(input, output, session) {
   })
 
 
-  pca_res <- reactive({
+  final_data <- reactive({
     req(dat[["removed_LOD"]])
 
     plt_data <- copy(dat[["removed_LOD"]])
     plt_data <- plt_data[`Sample Type` != "Sample", Sample_ID := paste0(Sample_ID, "_", 1:length(Sample_ID))]
     total_removing <- get_to_remove(to_remove)
 
-    plt_data <- metaboR:::complete_LOD(plt_data)
+    plt_data <- metaboR:::complete_LOD(plt_data, dat[["LOD_table"]])
 
     if(!is.null(total_removing)) {
       plt_data <- plt_data[!(Compound %in% total_removing)]
@@ -575,8 +620,17 @@ server <- function(input, output, session) {
     plt_data <- dcast(plt_data, Sample_ID + `Sample Type` ~ Compound, value.var = "Value")
     setnames(plt_data, old = "Sample Type", new = "SampleType", skip_absent = TRUE)
 
-    list(pca_res = prcomp(plt_data[, -c(1:2)]),
-         plot_data = plt_data)
+    plt_data
+  })
+
+
+  pca_res <- reactive({
+    req(dat[["removed_LOD"]])
+
+    plt_pca_dat <- final_data()
+
+    list(pca_res = prcomp(plt_pca_dat[, -c(1:2)]),
+         plot_data = plt_pca_dat)
 
   })
 
@@ -601,8 +655,8 @@ server <- function(input, output, session) {
     plt2 <- ggplot(exp_var_df, aes(x = dimensions, y = explained_variance_ratio * 100)) +
       geom_col(fill = "#90bc9c") +
       geom_text(mapping = aes(x = dimensions,
-                               y = explained_variance_ratio * 100 + 5,
-                               label = paste0(round(explained_variance_ratio* 100, 2), "%"))) +
+                              y = explained_variance_ratio * 100 + 5,
+                              label = paste0(round(explained_variance_ratio* 100, 2), "%"))) +
       theme_minimal() +
       ylab("variance explained (%)") +
       ggtitle("Scree plot") +
@@ -612,15 +666,62 @@ server <- function(input, output, session) {
 
   })
 
+  #### Download
 
-
-  output[["variance_exmplained_plt"]] <- renderPlot({
-    pca_results <- pca_res()
-
-
+  observeEvent(input[["app_panel"]], {
+    if(input[["app_panel"]] == "download")
+      updateNavbarPage(session, "main_navbar", selected = "Download")
   })
 
 
+  output[["download_excel"]] <- downloadHandler(
+    filename = function() { "results.xlsx"},
+    content = function(file) {
+      wb_file <- createWorkbook()
+
+      # final data
+      addWorksheet(wb_file, "Data")
+      writeData(wb_file, "Data", final_data())
+
+      # dat data
+      dat_list <- reactiveValuesToList(dat)
+      to_save <- c(setdiff(names(dat_list), c("samples_info")))
+
+      for(sheet_name in to_save) {
+        addWorksheet(wb_file, sheet_name)
+        writeData(wb_file, sheet_name, dat[[sheet_name]])
+      }
+
+      #samples info
+      samples_info <- list_to_dummy_frame(dat[["samples_info"]])
+      addWorksheet(wb_file, "samples_info")
+      writeData(wb_file, "samples_info",samples_info)
+
+      # removing data
+      to_remove_list <- reactiveValuesToList(to_remove)
+      removal_setup <- list_to_dummy_frame(to_remove_list)
+
+      addWorksheet(wb_file, "Removed")
+      writeData(wb_file, "Removed", removal_setup)
+
+      saveWorkbook(wb_file, paste0(file), overwrite = TRUE)
+    }
+  )
+
+  output[["to_remove_total"]] <- renderUI({
+    req(to_remove)
+
+    to_remove_list <- reactiveValuesToList(to_remove)
+    remove_types <- names(to_remove_list)
+
+    HTML(do.call(
+      paste0,
+      lapply(remove_types, function(ith_type) {
+        paste0(get_single_removal_content(to_remove_list, ith_type), "<br/><br/>")
+      })
+    ))
+
+  })
 
 }
 

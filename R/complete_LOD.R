@@ -45,8 +45,9 @@ handle_LOD <- function(LOD_data) {
 #'
 #' @keywords internal
 
-complete_LOD <- function(LOD_data) {
-  LOD_table <- attr(LOD_data, "LOD_table")
+complete_LOD <- function(LOD_data, LOD_table = NULL) {
+  if(is.null(LOD_table))
+    LOD_table <- attr(LOD_data, "LOD_table")
 
   LOD_data <- melt(LOD_data,
                    id.vars = c("Plate Bar Code", "Sample_ID", "Sample Type"),

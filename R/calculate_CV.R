@@ -13,8 +13,12 @@
 #'
 
 calculate_CV <- function(QC_data) {
-  dcast(QC_data, Compound ~ `Sample Type`, value.var = "Value",
-        fun.aggregate = function(value) 100 * sd(value) / mean(value))
+  QC_data <- dcast(QC_data, Compound ~ `Sample Type`, value.var = "Value",
+                   fun.aggregate = function(value) 100 * sd(value) / mean(value))
+  QC_data <- QC_data[,
+                     which(unlist(lapply(QC_data, function(x) !all(is.na(x)) ))),
+                     with = F]
+  QC_data
 }
 
 
@@ -41,7 +45,8 @@ calculate_CV <- function(QC_data) {
 remove_high_CV <- function(CV_data, metabolites) {
 
   CV_data <- CV_data[!(Compound %in% metabolites), ]
-  attr(CV_data, "CV_table") <- attr(CV_data, "CV_table")[!(Compound %in% metabolites), ]
+  if(!is.null(attr(CV_data, "CV_table")))
+    attr(CV_data, "CV_table") <- attr(CV_data, "CV_table")[!(Compound %in% metabolites), ]
 
   CV_data
 
@@ -62,8 +67,11 @@ remove_high_CV <- function(CV_data, metabolites) {
 #' @export get_CV_to_remove
 #'
 
-get_CV_to_remove <- function(CV_data, CV_threshold = 30, QC_type = "QC Level 2") {
-  CV_table <- attr(CV_data, "CV_table")
+get_CV_to_remove <- function(CV_data, CV_threshold = 30,
+                             QC_type = "QC Level 2", CV_table = NULL) {
+  if(is.null(CV_table))
+    CV_table <- attr(CV_data, "CV_table")
+
   as.vector(CV_table[get(QC_type) >= CV_threshold, Compound])
 }
 
