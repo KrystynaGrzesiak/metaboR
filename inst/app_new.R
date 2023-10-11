@@ -23,7 +23,7 @@ source("supp/supplementary_shiny.R")
 
 
 
-app_panels <- c("upload_data", "remove_metabolites", "quality_control", "download")
+app_panels <- c("upload_data", "data_setup", "remove_metabolites", "quality_control", "download")
 
 
 ui <- navbarPage(
@@ -36,6 +36,7 @@ ui <- navbarPage(
     "Run",
     display_navigation_bar(
       steps = c("Upload data",
+                "Data setup",
                 "Remove metabolites with high LOD proportion",
                 "Quality control",
                 "Download")
@@ -57,7 +58,6 @@ ui <- navbarPage(
                  multiple = FALSE,
                  accept = c(".xlsx", ".xls")
                ),
-               br(),
                h4("... or load your previous project"),
                fileInput(
                  inputId = 'project_path',
@@ -71,9 +71,17 @@ ui <- navbarPage(
                h4("You can see metabolomics matrix and LOD table below:"),
                br(),
                tabsetPanel(
+                 tabPanel("Data summary",
+                          htmlOutput("raw_data_summary"),
+                 ),
                  tabPanel(
-                   "Metabolites",
-                   withSpinner(DT::dataTableOutput("biocrates_data"),
+                   "Compounds",
+                   withSpinner(DT::dataTableOutput("biocrates_matrix"),
+                               color = "#3e3f3a")
+                 ),
+                 tabPanel(
+                   "Full data",
+                   withSpinner(DT::dataTableOutput("biocrates_full_data"),
                                color = "#3e3f3a")
                  ),
                  tabPanel(
@@ -82,6 +90,39 @@ ui <- navbarPage(
                                color = "#3e3f3a")
                  )
                )
+        ),
+      ),
+      ##################### Setup
+      tabPanel(
+        "data_setup",
+        column(
+          3,
+          style = "background-color:#f8f5f0; border-right: 1px solid",
+          br(),
+          h4("1. Select <LOD treatment strategy:"),
+          radioButtons(
+            inputId = "LOD_strategy",
+            label = "Replace <LOD values with",
+            choiceValues = c("zero","1/2", "1/sqrt2", "detection limit"),
+            choiceNames = c("zero (not recommended)","1/2 detection limit", "1/√2 detection limit", "detection limit"),
+            selected = "1/2"
+          ),
+          br(),
+          h4("2. Provide variable containing experimental group:"),
+          h5(HTML("<b>Select the column with experimental group from the table (optional). Click again to unselect. </b>")),
+          htmlOutput("selected_group"),
+          br(),
+          h4("3. Select imputation methods:"),
+          selectInput("missing_imputation_method",
+                      "Select missing values imputation method (optional)", choices = ""),
+          selectInput("infinite_imputation_method",
+                      "Select infinite values (∞) imputation method (optional)", choices = "")
+        ),
+        column(7, offset = 1,
+               h3("Dataset preview"),
+               br(),
+               withSpinner(DT::dataTableOutput("group_columns"),
+                           color = "#3e3f3a")
         )
       ),
       ############### Remove metabolites
@@ -305,7 +346,6 @@ server <- function(input, output, session) {
       error = function(e) e
     )
 
-
     if("error" %in% class(raw_data)) {
       if(raw_data[["message"]] == ("You need to provide unique sample ID.
          There are some duplicated samples in your file."))
@@ -319,22 +359,23 @@ server <- function(input, output, session) {
 
       req(dat[["raw_data"]])
     } else {
-      sendSweetAlert(session, title = "Success!",
-                     text = "Your data is correct!",
-                     type = "success")
+      # sendSweetAlert(session, title = "Success!",
+      #                text = "Your data is correct!",
+      #                type = "success")
     }
 
 
     dat[["raw_data"]] <- raw_data
     dat[["LOD_table"]] <- attr(raw_data, "LOD_table")
-    dat[["n_cmp"]] <- uniqueN(attr(raw_data, "LOD_table")[, Compound])
+    dat[["metabolites"]] <- attr(raw_data, "metabolites")
+    dat[["n_cmp"]] <- length(dat[["metabolites"]])
     dat[["n_smp"]] <- nrow(raw_data)
     dat[["removed_LOD"]] <- copy(raw_data)
-    dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]])
-    dat[["completed_data"]] <- metaboR:::handle_LOD(dat[["removed_LOD"]])
-    dat[["removed_CV"]] <- dat[["completed_data"]]
-    dat[["CV_ratios_complete"]] <- attr(dat[["removed_CV"]], "CV_table")
-    dat[["CV_ratios"]] <- attr(dat[["removed_CV"]], "CV_table")
+    # dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]])
+    # dat[["completed_data"]] <- metaboR:::handle_LOD(dat[["removed_LOD"]])
+    # dat[["removed_CV"]] <- dat[["completed_data"]]
+    # dat[["CV_ratios_complete"]] <- attr(dat[["removed_CV"]], "CV_table")
+    # dat[["CV_ratios"]] <- attr(dat[["removed_CV"]], "CV_table")
   })
 
 
@@ -369,7 +410,42 @@ server <- function(input, output, session) {
 
 
   ###### Data preview
-  output[["biocrates_data"]] <- DT::renderDataTable({
+
+  output[["raw_data_summary"]] <- renderUI({
+    req(dat[["raw_data"]])
+    req(dat[["n_cmp"]])
+    req(dat[["n_smp"]])
+    metabolite_matrix <- dat[["raw_data"]][, .SD, .SDcols = dat[["metabolites"]]]
+    HTML(paste0(
+      "<h4> Data summary:</h4><br/>",
+      "<b>Compounds:</b> ", dat[["n_cmp"]], ", <br/> ",
+      "<b>Samples:</b> ", dat[["n_smp"]], ", <br/> ",
+      "<b>Sample Types:</b> ",  paste0(unique(dat[["raw_data"]][, `Sample Type`]), collapse = ", "), ", <br/> ",
+      "<b>QC levels:</b> ", uniqueN(dat[["raw_data"]][grepl("QC", `Sample Type`), `Sample Type`]), ", <br/> ",
+      "<b> `< LOD` values:</b> ", sum(metabolite_matrix == "< LOD" & !is.na(metabolite_matrix)), ", <br/> ",
+      "<b>Missing values:</b> ", sum(is.na(metabolite_matrix) | metabolite_matrix == "NA"), ", <br/> ",
+      "<b>Infinite values (∞):</b> ", sum(metabolite_matrix == Inf & !is.na(metabolite_matrix)), ", <br/> ",
+      "<b>Material: </b>", paste0(unique(dat[["raw_data"]][, Material]), collapse = ", "), ", <br/> ",
+      "<b>OP: </b>", paste0(unique(dat[["raw_data"]][, OP]), collapse = ", "), ", <br/> ",
+      "<b>Plate Bar Code: </b>", paste0(unique(dat[["raw_data"]][, `Plate Bar Code`]), collapse = ", "), ", <br/> ",
+      "<b>Sample Volume: </b>", paste0(unique(dat[["raw_data"]][, `Sample Volume`]), collapse = ", "),
+      "."
+    ))
+  })
+
+
+  output[["biocrates_matrix"]] <- DT::renderDataTable({
+    req(dat[["raw_data"]])
+    req(dat[["metabolites"]])
+
+    names_vec <- c("Sample_ID", dat[["metabolites"]])
+
+    custom_datatable(dat[["raw_data"]][, ..names_vec],
+                     scrollY = 550,
+                     paging = FALSE)
+  })
+
+  output[["biocrates_full_data"]] <- DT::renderDataTable({
     req(dat[["raw_data"]])
     custom_datatable(dat[["raw_data"]],
                      scrollY = 550,
@@ -398,6 +474,43 @@ server <- function(input, output, session) {
                       selected = get_prev_panel(input[["app_panel"]],
                                                 app_panels))
   })
+
+
+  ################ Setup
+
+  output[["group_columns"]] <- DT::renderDataTable({
+    req(dat[["raw_data"]])
+    req(dat[["metabolites"]])
+    custom_datatable(dat[["raw_data"]][, .SD, .SDcols = !dat[["metabolites"]]],
+                     scrollY = 550,
+                     paging = FALSE,
+                     selection = list(mode = "single", target = "column"))
+  })
+
+
+  output[["selected_group"]] <- renderUI({
+    req(dat[["raw_data"]])
+    req(dat[["metabolites"]])
+
+    selected_col_id <- input[["group_columns_columns_selected"]]
+
+    if(is.null(selected_col_id)){
+      selected <- "none"
+    } else {
+      column_names_dat <- colnames(dat[["raw_data"]][, .SD, .SDcols = !dat[["metabolites"]]])
+      selected <- column_names_dat[selected_col_id]
+
+      if(any(is.na(dat[["raw_data"]][`Sample Type` == "Sample", get(selected)]))) {
+        showNotification(paste0("You cannot select ", selected, ". It contains missing values!"),
+                         type = "error")
+        selected <- "none"
+      }
+    }
+
+    HTML(paste0("Selected: ", selected))
+  })
+
+
 
 
   ################ removing LOD

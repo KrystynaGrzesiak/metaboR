@@ -1,9 +1,12 @@
 
 
-custom_datatable <- function(dat, paging = TRUE, scrollY = 380) {
+custom_datatable <- function(dat,
+                             paging = TRUE,
+                             scrollY = 380,
+                             selection = list(selectable = FALSE)) {
   DT::datatable(dat,
                 editable = FALSE,
-                selection = list(selectable = FALSE),
+                selection = selection,
                 options = list(paging = paging,
                                scrollX = TRUE,
                                scrollY = scrollY,

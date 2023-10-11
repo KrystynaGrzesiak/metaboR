@@ -11,9 +11,6 @@ read_targeted(path, LOD_table, clinical_data = NULL)
 
 \item{LOD_table}{A table that contains the values of LOD.
 \code{\link[metaboR]{read_LOD_table}}.}
-
-\item{clinical_data}{clinical data of metaboR_clinical class. Use
-\code{\link[metaboR]{metaboR_clinical}} to read clinical data.}
 }
 \description{
 Imports targeted data from a file.

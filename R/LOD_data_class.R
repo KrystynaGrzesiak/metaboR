@@ -4,6 +4,7 @@
 validate_metaboR_LOD_data <- function(LOD_data) {
 
   LOD_table <- attr(LOD_data, "LOD_table")
+  metabolites <- attr(LOD_data, "metabolites")
 
   #validate metabolomics matrix
   if(uniqueN(LOD_data[`Sample Type` == "Sample"],
@@ -21,13 +22,15 @@ validate_metaboR_LOD_data <- function(LOD_data) {
 
 metaboR_LOD_data <- function(metabo_matrix,
                              LOD_table,
-                             samples_info){
+                             metabolites){
 
   metabo_matrix <- as.data.table(metabo_matrix)
   LOD_table <- as.data.table(LOD_table)
+  metabolites <- as.vector(metabolites)
 
   validate_metaboR_LOD_data(new_metaboR_LOD_data(metabo_matrix = metabo_matrix,
-                                                 LOD_table = LOD_table))
+                                                 LOD_table = LOD_table,
+                                                 metabolites = metabolites))
 }
 
 
@@ -35,9 +38,10 @@ metaboR_LOD_data <- function(metabo_matrix,
 
 new_metaboR_LOD_data <- function(metabo_matrix,
                                  LOD_table,
-                                 samples_info){
+                                 metabolites){
 
   structure(metabo_matrix,
             class = c("metaboR_LOD_data", "data.table", "data.frame"),
-            LOD_table = LOD_table)
+            LOD_table = LOD_table,
+            metabolites = metabolites)
 }
