@@ -17,11 +17,20 @@
 #' @export handle_LOD
 #'
 
-handle_LOD <- function(LOD_data) {
+handle_LOD <- function(LOD_data,
+                       LOD_table = NULL,
+                       LOD_frac = 0.5,
+                       LOD_type = "calc") {
 
-  LOD_data <- complete_LOD(LOD_data)
+  if(is.null(LOD_table))
+    LOD_table <- attr(LOD_data, "LOD_table")
 
-  CV_table <- LOD_data[`Sample Type` != "Sample", !"Sample_ID"]
+  LOD_type <- match.arg(LOD_type, c("calc", "op"))
+  LOD_type <- ifelse(LOD_type == "calc", "LOD (calc.)", "LOD (from OP)")
+
+  LOD_data <- complete_LOD(LOD_data, LOD_table, LOD_frac, LOD_type)
+
+  CV_table <- LOD_data[`Sample Type` != "Sample", !"Sample Identification"]
   CV_table <- calculate_CV(CV_table)
 
   LOD_data <- LOD_data[`Sample Type` == "Sample"]
@@ -45,24 +54,49 @@ handle_LOD <- function(LOD_data) {
 #'
 #' @keywords internal
 
-complete_LOD <- function(LOD_data, LOD_table = NULL) {
-  if(is.null(LOD_table))
-    LOD_table <- attr(LOD_data, "LOD_table")
+complete_LOD <- function(LOD_data, LOD_table, LOD_frac, LOD_type) {
 
   LOD_data <- melt(LOD_data,
-                   id.vars = c("Plate Bar Code", "Sample_ID", "Sample Type"),
+                   id.vars = c("Plate Bar Code",
+                               "Sample Identification",
+                               "Sample Type"),
                    variable.name = "Compound",
                    value.name = "Value")
 
+  LOD_table[, "Value"] <- as.numeric(unlist(LOD_table[, "Value"]))
+
+  LOD_to_impute <- LOD_table[Type == LOD_type,
+                             .(LOD_Value = sum(Value, na.rm = TRUE) * LOD_frac),
+                             by = list(`Plate Bar Code`, Compound)]
+
+  LOD_to_impute <- LOD_to_impute[
+    , LLOQ_Value := LOD_table[Type == "LLOQ",
+                              .(LLOQ = sum(Value, na.rm = TRUE) * LOD_frac,
+                                ULOQ = sum(Value, na.rm = TRUE)),
+                              by = list(`Plate Bar Code`, Compound)][, LLOQ ]
+  ]
+  LOD_to_impute <- LOD_to_impute[
+    , ULOQ_Value := LOD_table[Type == "ULOQ",
+                              .(ULOQ = sum(Value, na.rm = TRUE)),
+                              by = list(`Plate Bar Code`, Compound)][, ULOQ]
+  ]
+
+  LOD_to_impute <- LOD_to_impute[
+    , which(unlist(lapply(LOD_to_impute, function(x)!all(is.na(x))))), with = F
+  ]
+
   LOD_data <- merge(LOD_data,
-                    LOD_table,
-                    by = c("Plate Bar Code", "Compound"),
-                    suffixes = c("", "_LOD"))
+                    LOD_to_impute,
+                    by = c("Plate Bar Code", "Compound"))
 
   LOD_data <- LOD_data[
-    , Value := as.numeric(ifelse(Value == "< LOD", Value_LOD, Value))
+    , Value := as.numeric(
+      ifelse(Value == "< LOD", LOD_Value,
+             ifelse(Value == "< LLOQ", LLOQ_Value,
+                    ifelse(Value == "> ULOQ", ULOQ_Value, Value)))
+    )
   ][
-    , .(Sample_ID, `Sample Type`,  Compound, Value)
+    , .(`Sample Identification`, `Sample Type`,  Compound, Value)
   ]
 
   LOD_data

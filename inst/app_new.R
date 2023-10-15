@@ -72,6 +72,7 @@ ui <- navbarPage(
                br(),
                tabsetPanel(
                  tabPanel("Data summary",
+                          br(),
                           htmlOutput("raw_data_summary"),
                  ),
                  tabPanel(
@@ -80,7 +81,7 @@ ui <- navbarPage(
                                color = "#3e3f3a")
                  ),
                  tabPanel(
-                   "Full data",
+                   "Experiment setup data",
                    withSpinner(DT::dataTableOutput("biocrates_full_data"),
                                color = "#3e3f3a")
                  ),
@@ -105,7 +106,7 @@ ui <- navbarPage(
             label = "Replace <LOD values with",
             choiceValues = c("zero","1/2", "1/sqrt2", "detection limit"),
             choiceNames = c("zero (not recommended)","1/2 detection limit", "1/√2 detection limit", "detection limit"),
-            selected = "1/2"
+            selected = "zero"
           ),
           br(),
           h4("2. Provide variable containing experimental group:"),
@@ -119,7 +120,8 @@ ui <- navbarPage(
                       "Select infinite values (∞) imputation method (optional)", choices = "")
         ),
         column(7, offset = 1,
-               h3("Dataset preview"),
+               h3("Select column containing grouping variable from the table below."),
+               h4("You cannot choose variables with NA's."),
                br(),
                withSpinner(DT::dataTableOutput("group_columns"),
                            color = "#3e3f3a")
@@ -364,18 +366,18 @@ server <- function(input, output, session) {
       #                type = "success")
     }
 
-
     dat[["raw_data"]] <- raw_data
     dat[["LOD_table"]] <- attr(raw_data, "LOD_table")
     dat[["metabolites"]] <- attr(raw_data, "metabolites")
+    dat[["biocrates_data"]] <- attr(raw_data, "biocrates_data")
+
     dat[["n_cmp"]] <- length(dat[["metabolites"]])
     dat[["n_smp"]] <- nrow(raw_data)
+
     dat[["removed_LOD"]] <- copy(raw_data)
-    # dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]])
-    # dat[["completed_data"]] <- metaboR:::handle_LOD(dat[["removed_LOD"]])
-    # dat[["removed_CV"]] <- dat[["completed_data"]]
-    # dat[["CV_ratios_complete"]] <- attr(dat[["removed_CV"]], "CV_table")
-    # dat[["CV_ratios"]] <- attr(dat[["removed_CV"]], "CV_table")
+    dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]])
+
+    updateRadioButtons(session, "LOD_strategy", selected = "1/2")
   })
 
 
@@ -413,22 +415,29 @@ server <- function(input, output, session) {
 
   output[["raw_data_summary"]] <- renderUI({
     req(dat[["raw_data"]])
+    req(dat[["biocrates_data"]])
     req(dat[["n_cmp"]])
     req(dat[["n_smp"]])
-    metabolite_matrix <- dat[["raw_data"]][, .SD, .SDcols = dat[["metabolites"]]]
+
+    info_dat <- dat[["biocrates_data"]]
+
+    metabolite_matrix <- dat[["raw_data"]][, .SD, .SDcols = !c("Plate Bar Code", "Sample Identification", "Sample Type")]
+
     HTML(paste0(
       "<h4> Data summary:</h4><br/>",
       "<b>Compounds:</b> ", dat[["n_cmp"]], ", <br/> ",
       "<b>Samples:</b> ", dat[["n_smp"]], ", <br/> ",
-      "<b>Sample Types:</b> ",  paste0(unique(dat[["raw_data"]][, `Sample Type`]), collapse = ", "), ", <br/> ",
-      "<b>QC levels:</b> ", uniqueN(dat[["raw_data"]][grepl("QC", `Sample Type`), `Sample Type`]), ", <br/> ",
+      "<b>Sample Types:</b> ",  paste0(unique(info_dat[, `Sample Type`]), collapse = ", "), ", <br/> ",
+      "<b>QC levels:</b> ", uniqueN(info_dat[grepl("QC", `Sample Type`), `Sample Type`]), ", <br/> ",
       "<b> `< LOD` values:</b> ", sum(metabolite_matrix == "< LOD" & !is.na(metabolite_matrix)), ", <br/> ",
+      "<b> `< LLOQ` values:</b> ", sum(metabolite_matrix == "< LLOQ" & !is.na(metabolite_matrix)), ", <br/> ",
+      "<b> `> ULOQ` values:</b> ", sum(metabolite_matrix == "> ULOQ" & !is.na(metabolite_matrix)), ", <br/> ",
       "<b>Missing values:</b> ", sum(is.na(metabolite_matrix) | metabolite_matrix == "NA"), ", <br/> ",
       "<b>Infinite values (∞):</b> ", sum(metabolite_matrix == Inf & !is.na(metabolite_matrix)), ", <br/> ",
-      "<b>Material: </b>", paste0(unique(dat[["raw_data"]][, Material]), collapse = ", "), ", <br/> ",
-      "<b>OP: </b>", paste0(unique(dat[["raw_data"]][, OP]), collapse = ", "), ", <br/> ",
-      "<b>Plate Bar Code: </b>", paste0(unique(dat[["raw_data"]][, `Plate Bar Code`]), collapse = ", "), ", <br/> ",
-      "<b>Sample Volume: </b>", paste0(unique(dat[["raw_data"]][, `Sample Volume`]), collapse = ", "),
+      "<b>Material: </b>", paste0(unique(info_dat[, Material]), collapse = ", "), ", <br/> ",
+      "<b>OP: </b>", paste0(unique(info_dat[, OP]), collapse = ", "), ", <br/> ",
+      "<b>Plate Bar Code: </b>", paste0(unique(info_dat[, `Plate Bar Code`]), collapse = ", "), ", <br/> ",
+      "<b>Sample Volume: </b>", paste0(unique(info_dat[, `Sample Volume`]), collapse = ", "),
       "."
     ))
   })
@@ -436,18 +445,15 @@ server <- function(input, output, session) {
 
   output[["biocrates_matrix"]] <- DT::renderDataTable({
     req(dat[["raw_data"]])
-    req(dat[["metabolites"]])
 
-    names_vec <- c("Sample_ID", dat[["metabolites"]])
-
-    custom_datatable(dat[["raw_data"]][, ..names_vec],
+    custom_datatable(dat[["raw_data"]],
                      scrollY = 550,
                      paging = FALSE)
   })
 
   output[["biocrates_full_data"]] <- DT::renderDataTable({
-    req(dat[["raw_data"]])
-    custom_datatable(dat[["raw_data"]],
+    req(dat[["biocrates_data"]])
+    custom_datatable(dat[["biocrates_data"]],
                      scrollY = 550,
                      paging = FALSE)
   })
@@ -458,6 +464,30 @@ server <- function(input, output, session) {
                      scrollY = 550,
                      paging = FALSE)
   })
+
+
+  observeEvent(input[["LOD_strategy"]], {
+    req(dat[["raw_data"]])
+    req(dat[["removed_LOD"]])
+
+    LOD_frac <- switch (input[["LOD_strategy"]],
+                        zero = 0,
+                        `1/2` = 0.5,
+                        `1/sqrt2` = sqrt(0.5),
+                        `detection limit` = 1)
+    browser()
+
+    dat[["completed_data"]] <- metaboR:::handle_LOD(dat[["removed_LOD"]],
+                                                    dat[["LOD_table"]],
+                                                    LOD_frac = LOD_frac,
+                                                    LOD_type = "calc")
+    dat[["removed_CV"]] <- dat[["completed_data"]]
+    dat[["CV_ratios_complete"]] <- attr(dat[["removed_CV"]], "CV_table")
+    dat[["CV_ratios"]] <- attr(dat[["removed_CV"]], "CV_table")
+
+  })
+
+
 
   ################ navigation
 
@@ -479,9 +509,8 @@ server <- function(input, output, session) {
   ################ Setup
 
   output[["group_columns"]] <- DT::renderDataTable({
-    req(dat[["raw_data"]])
-    req(dat[["metabolites"]])
-    custom_datatable(dat[["raw_data"]][, .SD, .SDcols = !dat[["metabolites"]]],
+    req(dat[["biocrates_data"]])
+    custom_datatable(dat[["biocrates_data"]],
                      scrollY = 550,
                      paging = FALSE,
                      selection = list(mode = "single", target = "column"))
@@ -489,28 +518,24 @@ server <- function(input, output, session) {
 
 
   output[["selected_group"]] <- renderUI({
-    req(dat[["raw_data"]])
-    req(dat[["metabolites"]])
+    req(dat[["biocrates_data"]])
 
     selected_col_id <- input[["group_columns_columns_selected"]]
-
+    selected <- NULL
     if(is.null(selected_col_id)){
       selected <- "none"
     } else {
-      column_names_dat <- colnames(dat[["raw_data"]][, .SD, .SDcols = !dat[["metabolites"]]])
+      column_names_dat <- colnames(dat[["biocrates_data"]])
       selected <- column_names_dat[selected_col_id]
-
-      if(any(is.na(dat[["raw_data"]][`Sample Type` == "Sample", get(selected)]))) {
+      if(any(is.na(dat[["biocrates_data"]][`Sample Type` == "Sample", get(selected)]))) {
         showNotification(paste0("You cannot select ", selected, ". It contains missing values!"),
                          type = "error")
         selected <- "none"
       }
     }
-
+    dat[["selected_group"]] <- selected
     HTML(paste0("Selected: ", selected))
   })
-
-
 
 
   ################ removing LOD
@@ -721,7 +746,10 @@ server <- function(input, output, session) {
     req(dat[["removed_LOD"]])
 
     plt_data <- copy(dat[["removed_LOD"]])
-    plt_data <- plt_data[`Sample Type` != "Sample", Sample_ID := paste0(Sample_ID, "_", 1:length(Sample_ID))]
+    plt_data <- plt_data[`Sample Type` != "Sample",
+                         `Sample Identification` := paste0(`Sample Identification`,
+                                                           "_",
+                                                           1:length(`Sample Identification`))]
     total_removing <- get_to_remove(to_remove)
 
     plt_data <- metaboR:::complete_LOD(plt_data, dat[["LOD_table"]])
@@ -730,7 +758,7 @@ server <- function(input, output, session) {
       plt_data <- plt_data[!(Compound %in% total_removing)]
     }
 
-    plt_data <- dcast(plt_data, Sample_ID + `Sample Type` ~ Compound, value.var = "Value")
+    plt_data <- dcast(plt_data, `Sample Identification` + `Sample Type` ~ Compound, value.var = "Value")
     setnames(plt_data, old = "Sample Type", new = "SampleType", skip_absent = TRUE)
 
     plt_data

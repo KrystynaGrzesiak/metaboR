@@ -10,10 +10,13 @@
 #' @inheritParams handle_LOD
 #'
 
-get_LOD_ratios <- function(LOD_data) {
+get_LOD_ratios <- function(LOD_data, metabolites = NULL) {
+
+  if(is.null(metabolites))
+    metabolites <- attr(LOD_data, "metabolites")
 
   LOD_ratios <- LOD_data[
-    ,.SD, .SDcols = !c('Plate Bar Code', 'Sample Type', 'Sample_ID')
+    ,.SD, .SDcols = metabolites
   ][, lapply(.SD, function(ith_col) {
     mean(ith_col == "< LOD", na.rm = TRUE)
   })]

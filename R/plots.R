@@ -67,7 +67,7 @@ plot_raw_info <- function(LOD_data, info = NULL) {
 plot_LOD_proportion <- function(metaboR_LOD_data) {
 
   LOD_ratios <- metaboR_LOD_data[
-    ,.SD, .SDcols = !c('Plate Bar Code', 'Sample Type', 'Sample_ID')
+    ,.SD, .SDcols = !c('Plate Bar Code', 'Sample Type', 'Sample Identification')
   ][, lapply(.SD, function(ith_col) {
     mean(ith_col == "< LOD", na.rm = TRUE)
   })]

@@ -4,13 +4,12 @@ library(data.table)
 library(stringr)
 library(metaboR)
 
-path <- "./inst/data/targeted/Biocrates/PJ_Biocrates_j.xlsx"
+path <- "./inst/data/targeted/Biocrates/wild_file/2023-10-12_Conc.xlsx"
 
-read_biocrates(path)
+path <- "./inst/data/targeted/Biocrates/A_Biocrates_1 (4).xlsx"
 
 
-
-LOD_data <- remove_sparse_metabolites(LOD_data, LOD_threshold = 0.3)
+LOD_data <- read_biocrates(path)
 
 CV_data <- handle_LOD(LOD_data)
 

@@ -5,7 +5,7 @@
 \title{Imputing values under the limit of detection LOD in targeted metabolomics
 analysis}
 \usage{
-handle_LOD(LOD_data)
+handle_LOD(LOD_data, LOD_table = NULL, LOD_frac = 0.5, LOD_type = "calc")
 }
 \arguments{
 \item{LOD_data}{an object of metaboR_LOD_data class.}
