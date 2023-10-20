@@ -22,8 +22,8 @@ source("supp/navigation_modules.R")
 source("supp/supplementary_shiny.R")
 
 
-
-app_panels <- c("upload_data", "data_setup", "remove_metabolites", "quality_control", "download")
+app_panels <- c("upload_data", "data_setup", "remove_metabolites",
+                "LOD_LOQ_replacement", "quality_control", "download")
 
 
 ui <- navbarPage(
@@ -36,8 +36,9 @@ ui <- navbarPage(
     "Run",
     display_navigation_bar(
       steps = c("Upload data",
-                "Data setup",
+                "Groups setup",
                 "Remove metabolites with high LOD proportion",
+                "Replace LOD/LOQ",
                 "Quality control",
                 "Download")
     ),
@@ -100,29 +101,20 @@ ui <- navbarPage(
           3,
           style = "background-color:#f8f5f0; border-right: 1px solid",
           br(),
-          h4("1. Select <LOD treatment strategy:"),
-          radioButtons(
-            inputId = "LOD_strategy",
-            label = "Replace <LOD values with",
-            choiceValues = c("zero","1/2", "1/sqrt2", "detection limit"),
-            choiceNames = c("zero (not recommended)","1/2 detection limit", "1/√2 detection limit", "detection limit"),
-            selected = "zero"
-          ),
+          h2("(optional)"),
           br(),
-          h4("2. Provide variable containing experimental group:"),
-          h5(HTML("<b>Select the column with experimental group from the table (optional). Click again to unselect. </b>")),
+          h4("Select column containing grouping variable from the table.
+             Click again to unselect."),
+          br(),
           htmlOutput("selected_group"),
           br(),
-          h4("3. Select imputation methods:"),
-          selectInput("missing_imputation_method",
-                      "Select missing values imputation method (optional)", choices = ""),
-          selectInput("infinite_imputation_method",
-                      "Select infinite values (∞) imputation method (optional)", choices = "")
+          h4("Use selected group when calculating <LOD ratio:"),
+          switchInput("use_group",
+                      value = FALSE,
+                      onLabel = "Yes",
+                      offLabel = "No",)
         ),
         column(7, offset = 1,
-               h3("Select column containing grouping variable from the table below."),
-               h4("You cannot choose variables with NA's."),
-               br(),
                withSpinner(DT::dataTableOutput("group_columns"),
                            color = "#3e3f3a")
         )
@@ -202,6 +194,32 @@ ui <- navbarPage(
             )
           )
         ),
+      ),
+      ############### replace LOD
+      tabPanel(
+        "LOD_LOQ_replacement",
+        column(
+          3,
+          style = "background-color:#f8f5f0; border-right: 1px solid",
+          br(),
+          h4("1. Choose <LOD type:"),
+          radioButtons(
+            inputId = "LOD_value_type",
+            label = "LODs available in your data:",
+            choices = " ",
+            selected = NULL
+          ),
+          br(),
+          h4("2. Select <LOD replacement strategy:"),
+          radioButtons(
+            inputId = "LOD_strategy",
+            label = "Replace <LOD values with",
+            choiceValues = c("zero","1/2", "1/sqrt2", "detection limit"),
+            choiceNames = c("zero (not recommended)","1/2 detection limit", "1/√2 detection limit", "detection limit"),
+            selected = "zero"
+          ),
+          HTML('<hr style="border-color: black;">'),
+        )
       ),
       ############### Quality control
       tabPanel(
@@ -359,17 +377,39 @@ server <- function(input, output, session) {
                        text = "Something went wrong! Is your data valid?",
                        type = "error")
 
-      req(dat[["raw_data"]])
+      req(NULL)
     } else {
-      # sendSweetAlert(session, title = "Success!",
-      #                text = "Your data is correct!",
-      #                type = "success")
+
+      if(!any(c("QC Level 1", "QC Level 2", "QC Level 3") %in%
+              raw_data[["Sample Type"]])){
+        sendSweetAlert(session, title = "Oops!",
+                       text = "Your data has no QC samples!",
+                       type = "error")
+        req(NULL)
+
+      } else{
+        # sendSweetAlert(session, title = "Success!",
+        #                text = "Your data is correct!",
+        #                type = "success")
+      }
+    }
+
+    infs <- sum(raw_data == Inf & !is.na(raw_data))
+    if(infs > 0) {
+      sendSweetAlert(session, title = "Warning!",
+                     text = paste0("There are ", infs, " infinite values in your data!
+                                   Converted to NAs."),
+                     type = "warning")
+      raw_data[raw_data == Inf & !is.na(raw_data)] <- NA
     }
 
     dat[["raw_data"]] <- raw_data
     dat[["LOD_table"]] <- attr(raw_data, "LOD_table")
     dat[["metabolites"]] <- attr(raw_data, "metabolites")
-    dat[["biocrates_data"]] <- attr(raw_data, "biocrates_data")
+    dat[["biocrates_data"]] <- attr(raw_data, "biocrates_data")[
+      , .SD, .SDcols = !c("Sample Identification", "Measurement Time",
+                          "Sample Bar Code")
+    ]
 
     dat[["n_cmp"]] <- length(dat[["metabolites"]])
     dat[["n_smp"]] <- nrow(raw_data)
@@ -433,11 +473,9 @@ server <- function(input, output, session) {
       "<b> `< LLOQ` values:</b> ", sum(metabolite_matrix == "< LLOQ" & !is.na(metabolite_matrix)), ", <br/> ",
       "<b> `> ULOQ` values:</b> ", sum(metabolite_matrix == "> ULOQ" & !is.na(metabolite_matrix)), ", <br/> ",
       "<b>Missing values:</b> ", sum(is.na(metabolite_matrix) | metabolite_matrix == "NA"), ", <br/> ",
-      "<b>Infinite values (∞):</b> ", sum(metabolite_matrix == Inf & !is.na(metabolite_matrix)), ", <br/> ",
       "<b>Material: </b>", paste0(unique(info_dat[, Material]), collapse = ", "), ", <br/> ",
       "<b>OP: </b>", paste0(unique(info_dat[, OP]), collapse = ", "), ", <br/> ",
-      "<b>Plate Bar Code: </b>", paste0(unique(info_dat[, `Plate Bar Code`]), collapse = ", "), ", <br/> ",
-      "<b>Sample Volume: </b>", paste0(unique(info_dat[, `Sample Volume`]), collapse = ", "),
+      "<b>Plate Bar Code: </b>", paste0(unique(info_dat[, `Plate Bar Code`]), collapse = ", "),
       "."
     ))
   })
@@ -475,7 +513,6 @@ server <- function(input, output, session) {
                         `1/2` = 0.5,
                         `1/sqrt2` = sqrt(0.5),
                         `detection limit` = 1)
-    browser()
 
     dat[["completed_data"]] <- metaboR:::handle_LOD(dat[["removed_LOD"]],
                                                     dat[["LOD_table"]],
@@ -511,7 +548,7 @@ server <- function(input, output, session) {
   output[["group_columns"]] <- DT::renderDataTable({
     req(dat[["biocrates_data"]])
     custom_datatable(dat[["biocrates_data"]],
-                     scrollY = 550,
+                     scrollY = 650,
                      paging = FALSE,
                      selection = list(mode = "single", target = "column"))
   })
@@ -522,6 +559,8 @@ server <- function(input, output, session) {
 
     selected_col_id <- input[["group_columns_columns_selected"]]
     selected <- NULL
+    levels <- "-"
+
     if(is.null(selected_col_id)){
       selected <- "none"
     } else {
@@ -531,10 +570,19 @@ server <- function(input, output, session) {
         showNotification(paste0("You cannot select ", selected, ". It contains missing values!"),
                          type = "error")
         selected <- "none"
+      } else {
+        levels <- paste0(unique(dat[["biocrates_data"]][[selected_col_id]]),
+                         collapse = ", ")
+
       }
     }
+    if(levels == "-")
+      updateSwitchInput(session, "use_group",
+                        value = FALSE)
+
     dat[["selected_group"]] <- selected
-    HTML(paste0("Selected: ", selected))
+    HTML(paste0("Selected: ", selected, "<br/><br/>",
+                "Levels: ", levels))
   })
 
 
@@ -625,6 +673,22 @@ server <- function(input, output, session) {
   output[["to_remove_by_hand_names"]] <- renderUI({
     get_remove_html_content(unlist(to_remove_by_hand()))
   })
+
+  ################ COMPLETING LOD
+
+  observeEvent(dat[["LOD_table"]], {
+
+    choices <- match.arg(arg = c("LOD (calc.)", "LOD (from OP)"),
+                         choices = unique(dat[["LOD_table"]]$Type),
+                         several.ok = TRUE)
+
+    updateRadioButtons(session,
+                       "LOD_value_type",
+                       choices = choices,
+                       selected = choices[1])
+
+  })
+
 
   ################ Quality control
 

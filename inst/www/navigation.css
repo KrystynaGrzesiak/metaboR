@@ -5,7 +5,7 @@
   cursor: default;
   margin: 0 0.4%; /* Use percentage-based margin */
   padding: 1.4rem 1% 1.4rem 4%; /* Use percentage-based padding */
-  min-width: 15%; /* Use percentage-based minimum width */
+  min-width: 10%; /* Use percentage-based minimum width */
   float: left;
   position: relative;
   background-color: #e3e7af;
