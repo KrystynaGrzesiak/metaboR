@@ -11,3 +11,15 @@ list_to_dummy_frame <- function(list_dat) {
     ith_vec
   }))
 }
+
+plot_venn <- function(LOD_ratios, LOD_thresh) {
+  groups <- unique(LOD_ratios[["Group"]])
+  plt_data <- dcast(LOD_ratios, Compound ~ Group, value.var = "< LOD ratio")
+  plt_data <- plt_data[, lapply(.SD, function(ith_col) {
+    ifelse(ith_col > LOD_thresh, as.vector(Compound), NA)
+  }), .SDcols = groups]
+
+  plt_data <- lapply(as.list(plt_data), na.omit)
+  ggvenn(plt_data)
+}
+

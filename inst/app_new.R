@@ -7,6 +7,7 @@ library(ggplot2)
 library(ggiraph)
 library(patchwork)
 library(ggfortify)
+library(ggvenn)
 
 library(metaboR)
 
@@ -108,11 +109,6 @@ ui <- navbarPage(
           br(),
           htmlOutput("selected_group"),
           br(),
-          h4("Use selected group when calculating <LOD ratio:"),
-          switchInput("use_group",
-                      value = FALSE,
-                      onLabel = "Yes",
-                      offLabel = "No",)
         ),
         column(7, offset = 1,
                withSpinner(DT::dataTableOutput("group_columns"),
@@ -154,12 +150,24 @@ ui <- navbarPage(
                    htmlOutput("to_remove_names"),
                    br()
             ),
-            column(4,
-                   offset = 2,
-                   h4("Ratio of <LOD values per metabolite:"),
-                   shinycssloaders::withSpinner(
-                     DT::dataTableOutput("LOD_ratios_tbl"),
-                     color = "#3e3f3a"
+            column(6,
+                   offset = 1,
+
+                   tabsetPanel(
+                     tabPanel("< LOD ratios table",
+                              h4("Ratio of <LOD values per metabolite:"),
+                              shinycssloaders::withSpinner(
+                                DT::dataTableOutput("LOD_ratios_tbl"),
+                                color = "#3e3f3a"
+                              )
+                     ),
+                     tabPanel("Graphical representation",
+                              br(),
+                              shinycssloaders::withSpinner(
+                                plotOutput("LOD_plt", height = "550px"),
+                                color = "#3e3f3a"
+                              )
+                     )
                    )
             )
           ),
@@ -415,7 +423,6 @@ server <- function(input, output, session) {
     dat[["n_smp"]] <- nrow(raw_data)
 
     dat[["removed_LOD"]] <- copy(raw_data)
-    dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]])
 
     updateRadioButtons(session, "LOD_strategy", selected = "1/2")
   })
@@ -504,26 +511,6 @@ server <- function(input, output, session) {
   })
 
 
-  observeEvent(input[["LOD_strategy"]], {
-    req(dat[["raw_data"]])
-    req(dat[["removed_LOD"]])
-
-    LOD_frac <- switch (input[["LOD_strategy"]],
-                        zero = 0,
-                        `1/2` = 0.5,
-                        `1/sqrt2` = sqrt(0.5),
-                        `detection limit` = 1)
-
-    dat[["completed_data"]] <- metaboR:::handle_LOD(dat[["removed_LOD"]],
-                                                    dat[["LOD_table"]],
-                                                    LOD_frac = LOD_frac,
-                                                    LOD_type = "calc")
-    dat[["removed_CV"]] <- dat[["completed_data"]]
-    dat[["CV_ratios_complete"]] <- attr(dat[["removed_CV"]], "CV_table")
-    dat[["CV_ratios"]] <- attr(dat[["removed_CV"]], "CV_table")
-
-  })
-
 
 
   ################ navigation
@@ -554,9 +541,10 @@ server <- function(input, output, session) {
   })
 
 
-  output[["selected_group"]] <- renderUI({
+  observeEvent(input[["group_columns_columns_selected"]], {
     req(dat[["biocrates_data"]])
 
+    ##### selected column
     selected_col_id <- input[["group_columns_columns_selected"]]
     selected <- NULL
     levels <- "-"
@@ -566,41 +554,109 @@ server <- function(input, output, session) {
     } else {
       column_names_dat <- colnames(dat[["biocrates_data"]])
       selected <- column_names_dat[selected_col_id]
-      if(any(is.na(dat[["biocrates_data"]][`Sample Type` == "Sample", get(selected)]))) {
-        showNotification(paste0("You cannot select ", selected, ". It contains missing values!"),
-                         type = "error")
-        selected <- "none"
-      } else {
-        levels <- paste0(unique(dat[["biocrates_data"]][[selected_col_id]]),
-                         collapse = ", ")
 
+      if(!length(unique(dat[["biocrates_data"]][ , get(column_names_dat[selected_col_id])])) == 1 &
+         !any(is.na(dat[["biocrates_data"]][`Sample Type` == "Sample", get(column_names_dat[selected_col_id])]))) {
+
+        levels <- paste0(unique(dat[["biocrates_data"]][[selected_col_id]]), collapse = ", ")
+      } else{
+
+        if(length(unique(dat[["biocrates_data"]][ , get(column_names_dat[selected_col_id])])) == 1)
+          showNotification("The chosen column contains only one group!", type = "warning")
+        if(any(is.na(dat[["biocrates_data"]][`Sample Type` == "Sample", get(column_names_dat[selected_col_id])])))
+          showNotification(paste0("You cannot select ", selected, ". It contains missing values!"), type = "error")
+
+        selected <- "none"
       }
     }
-    if(levels == "-")
-      updateSwitchInput(session, "use_group",
-                        value = FALSE)
-
     dat[["selected_group"]] <- selected
-    HTML(paste0("Selected: ", selected, "<br/><br/>",
-                "Levels: ", levels))
+    dat[["levels"]] <- levels
+
+    #### LOD ratios data
+    if(dat[["selected_group"]] == "none") {
+      showNotification("You did not provide a group for calculating LOD ratios!
+                         LOD ratios will be calculated for all samples jointly!",
+                       type = "warning")
+      dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]], group = NULL)
+    } else {
+      group <- dat[["biocrates_data"]][, get(dat[["selected_group"]])]
+      dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]], group = group)
+    }
+
+  })
+
+
+  output[["selected_group"]] <- renderUI({
+    HTML(paste0("Selected: ", dat[["selected_group"]], "<br/><br/>", "Levels: ", dat[["levels"]]))
+  })
+
+
+  observeEvent(input[["LOD_strategy"]], {
+    req(dat[["raw_data"]])
+    req(dat[["removed_LOD"]])
+
+    LOD_frac <- switch (input[["LOD_strategy"]],
+                        zero = 0,
+                        `1/2` = 0.5,
+                        `1/sqrt2` = sqrt(0.5),
+                        `detection limit` = 1)
+
+    dat[["completed_data"]] <- metaboR:::handle_LOD(dat[["removed_LOD"]],
+                                                    dat[["LOD_table"]],
+                                                    LOD_frac = LOD_frac,
+                                                    LOD_type = "calc")
+    dat[["removed_CV"]] <- dat[["completed_data"]]
+    dat[["CV_ratios_complete"]] <- attr(dat[["removed_CV"]], "CV_table")
+    dat[["CV_ratios"]] <- attr(dat[["removed_CV"]], "CV_table")
   })
 
 
   ################ removing LOD
 
   output[["LOD_ratios_tbl"]] <-  DT::renderDataTable({
-    custom_datatable(dat[["LOD_ratios"]], scrollY = 550, paging = FALSE)
+    req(dat[["removed_LOD"]])
+
+    display_ratios <- copy(dat[["LOD_ratios"]])
+
+    if(all(display_ratios[["Group"]] == 1))
+      display_ratios <- unique(display_ratios[, -c("Group")])
+    else
+      display_ratios <- dcast(display_ratios, Compound ~ Group, value.var = "< LOD ratio")
+
+    custom_datatable(display_ratios, scrollY = 550, paging = FALSE)
   })
+
+
+  output[["LOD_plt"]] <- renderPlot({
+    req(dat[["LOD_ratios"]])
+    req(input[["LOD_thresh"]])
+
+    n_groups <- length(na.omit(unique(dat[["LOD_ratios"]][["Group"]])))
+
+    if(n_groups > 4 | n_groups < 2) {
+      sendSweetAlert(session,
+                     title = "Sorry!",
+                     text = paste0("We cannot draw Venna Diagram for ", n_groups, " groups!"),
+                     type = "warning")
+      req(NULL)
+    } else {
+      plot_venn(dat[["LOD_ratios"]], input[["LOD_thresh"]])
+    }
+  })
+
 
   to_remove_LOD <- reactive({
     req(dat[["LOD_ratios"]])
     req(input[["LOD_thresh"]])
+
     metaboR:::get_sparse_columns(dat[["LOD_ratios"]], input[["LOD_thresh"]])
   })
+
 
   output[["to_remove_names"]] <- renderUI({
     get_remove_html_content(to_remove_LOD())
   })
+
 
   observeEvent(input[["remove_btn"]], {
     req(dat[["removed_LOD"]])
@@ -608,7 +664,9 @@ server <- function(input, output, session) {
 
     if(length(to_remove_LOD()) > 0) {
       dat[["removed_LOD"]] <- dat[["removed_LOD"]][ , (get_to_remove(to_remove)) := NULL ]
-      dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]])
+      group <- ifelse(dat[["selected_group"]] == "none", NULL,
+                      dat[["biocrates_data"]][, get(dat[["selected_group"]])])
+      dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]], group = group)
     }
   })
 
@@ -624,7 +682,9 @@ server <- function(input, output, session) {
     if(!is.null(total_removing))
       dat[["removed_LOD"]] <- dat[["removed_LOD"]][, (total_removing) := NULL ]
 
-    dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]])
+    group <- ifelse(dat[["selected_group"]] == "none", NULL,
+                    dat[["biocrates_data"]][, get(dat[["selected_group"]])])
+    dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]], group = group)
   })
 
   to_remove_by_hand <- reactive({
@@ -651,7 +711,9 @@ server <- function(input, output, session) {
     if(length(to_remove_by_hand()) > 0) {
       to_remove[["LOD_hand"]] <- c(to_remove[["LOD_hand"]], to_remove_by_hand())
       dat[["removed_LOD"]] <- dat[["removed_LOD"]][, (to_remove_by_hand()) := NULL ]
-      dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]])
+      group <- ifelse(dat[["selected_group"]] == "none", NULL,
+                      dat[["biocrates_data"]][, get(dat[["selected_group"]])])
+      dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]], group = group)
     }
   })
 
@@ -667,7 +729,10 @@ server <- function(input, output, session) {
     if(!is.null(total_removing))
       dat[["removed_LOD"]] <- dat[["removed_LOD"]][ , (total_removing) := NULL ]
 
-    dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]])
+    group <- ifelse(dat[["selected_group"]] == "none", NULL,
+                    dat[["biocrates_data"]][, get(dat[["selected_group"]])])
+    dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]],
+                                                    group = group)
   })
 
   output[["to_remove_by_hand_names"]] <- renderUI({
