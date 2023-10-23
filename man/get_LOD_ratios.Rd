@@ -4,7 +4,7 @@
 \alias{get_LOD_ratios}
 \title{Calculates <LOD ratios per column}
 \usage{
-get_LOD_ratios(LOD_data, metabolites = NULL)
+get_LOD_ratios(LOD_data, group = NULL, metabolites = NULL)
 }
 \arguments{
 \item{LOD_data}{an object of metaboR_LOD_data class.}

@@ -7,6 +7,7 @@ library(ggplot2)
 library(ggiraph)
 library(patchwork)
 library(ggfortify)
+library(ggvenn)
 
 library(metaboR)
 
@@ -22,8 +23,8 @@ source("supp/navigation_modules.R")
 source("supp/supplementary_shiny.R")
 
 
-
-app_panels <- c("upload_data", "data_setup", "remove_metabolites", "quality_control", "download")
+app_panels <- c("upload_data", "data_setup", "remove_metabolites",
+                "LOD_LOQ_replacement", "quality_control", "download")
 
 
 ui <- navbarPage(
@@ -36,8 +37,9 @@ ui <- navbarPage(
     "Run",
     display_navigation_bar(
       steps = c("Upload data",
-                "Data setup",
+                "Groups setup",
                 "Remove metabolites with high LOD proportion",
+                "Replace LOD/LOQ",
                 "Quality control",
                 "Download")
     ),
@@ -100,29 +102,15 @@ ui <- navbarPage(
           3,
           style = "background-color:#f8f5f0; border-right: 1px solid",
           br(),
-          h4("1. Select <LOD treatment strategy:"),
-          radioButtons(
-            inputId = "LOD_strategy",
-            label = "Replace <LOD values with",
-            choiceValues = c("zero","1/2", "1/sqrt2", "detection limit"),
-            choiceNames = c("zero (not recommended)","1/2 detection limit", "1/√2 detection limit", "detection limit"),
-            selected = "zero"
-          ),
+          h2("(optional)"),
           br(),
-          h4("2. Provide variable containing experimental group:"),
-          h5(HTML("<b>Select the column with experimental group from the table (optional). Click again to unselect. </b>")),
+          h4("Select column containing grouping variable from the table.
+             Click again to unselect."),
+          br(),
           htmlOutput("selected_group"),
           br(),
-          h4("3. Select imputation methods:"),
-          selectInput("missing_imputation_method",
-                      "Select missing values imputation method (optional)", choices = ""),
-          selectInput("infinite_imputation_method",
-                      "Select infinite values (∞) imputation method (optional)", choices = "")
         ),
         column(7, offset = 1,
-               h3("Select column containing grouping variable from the table below."),
-               h4("You cannot choose variables with NA's."),
-               br(),
                withSpinner(DT::dataTableOutput("group_columns"),
                            color = "#3e3f3a")
         )
@@ -162,12 +150,24 @@ ui <- navbarPage(
                    htmlOutput("to_remove_names"),
                    br()
             ),
-            column(4,
-                   offset = 2,
-                   h4("Ratio of <LOD values per metabolite:"),
-                   shinycssloaders::withSpinner(
-                     DT::dataTableOutput("LOD_ratios_tbl"),
-                     color = "#3e3f3a"
+            column(6,
+                   offset = 1,
+
+                   tabsetPanel(
+                     tabPanel("< LOD ratios table",
+                              h4("Ratio of <LOD values per metabolite:"),
+                              shinycssloaders::withSpinner(
+                                DT::dataTableOutput("LOD_ratios_tbl"),
+                                color = "#3e3f3a"
+                              )
+                     ),
+                     tabPanel("Graphical representation",
+                              br(),
+                              shinycssloaders::withSpinner(
+                                plotOutput("LOD_plt", height = "550px"),
+                                color = "#3e3f3a"
+                              )
+                     )
                    )
             )
           ),
@@ -202,6 +202,32 @@ ui <- navbarPage(
             )
           )
         ),
+      ),
+      ############### replace LOD
+      tabPanel(
+        "LOD_LOQ_replacement",
+        column(
+          3,
+          style = "background-color:#f8f5f0; border-right: 1px solid",
+          br(),
+          h4("1. Choose <LOD type:"),
+          radioButtons(
+            inputId = "LOD_value_type",
+            label = "LODs available in your data:",
+            choices = " ",
+            selected = NULL
+          ),
+          br(),
+          h4("2. Select <LOD replacement strategy:"),
+          radioButtons(
+            inputId = "LOD_strategy",
+            label = "Replace <LOD values with",
+            choiceValues = c("zero","1/2", "1/sqrt2", "detection limit"),
+            choiceNames = c("zero (not recommended)","1/2 detection limit", "1/√2 detection limit", "detection limit"),
+            selected = "zero"
+          ),
+          HTML('<hr style="border-color: black;">'),
+        )
       ),
       ############### Quality control
       tabPanel(
@@ -359,23 +385,44 @@ server <- function(input, output, session) {
                        text = "Something went wrong! Is your data valid?",
                        type = "error")
 
-      req(dat[["raw_data"]])
+      req(NULL)
     } else {
-      # sendSweetAlert(session, title = "Success!",
-      #                text = "Your data is correct!",
-      #                type = "success")
+
+      if(!any(c("QC Level 1", "QC Level 2", "QC Level 3") %in%
+              raw_data[["Sample Type"]])){
+        sendSweetAlert(session, title = "Oops!",
+                       text = "Your data has no QC samples!",
+                       type = "error")
+        req(NULL)
+
+      } else{
+        # sendSweetAlert(session, title = "Success!",
+        #                text = "Your data is correct!",
+        #                type = "success")
+      }
+    }
+
+    infs <- sum(raw_data == Inf & !is.na(raw_data))
+    if(infs > 0) {
+      sendSweetAlert(session, title = "Warning!",
+                     text = paste0("There are ", infs, " infinite values in your data!
+                                   Converted to NAs."),
+                     type = "warning")
+      raw_data[raw_data == Inf & !is.na(raw_data)] <- NA
     }
 
     dat[["raw_data"]] <- raw_data
     dat[["LOD_table"]] <- attr(raw_data, "LOD_table")
     dat[["metabolites"]] <- attr(raw_data, "metabolites")
-    dat[["biocrates_data"]] <- attr(raw_data, "biocrates_data")
+    dat[["biocrates_data"]] <- attr(raw_data, "biocrates_data")[
+      , .SD, .SDcols = !c("Sample Identification", "Measurement Time",
+                          "Sample Bar Code")
+    ]
 
     dat[["n_cmp"]] <- length(dat[["metabolites"]])
     dat[["n_smp"]] <- nrow(raw_data)
 
     dat[["removed_LOD"]] <- copy(raw_data)
-    dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]])
 
     updateRadioButtons(session, "LOD_strategy", selected = "1/2")
   })
@@ -433,11 +480,9 @@ server <- function(input, output, session) {
       "<b> `< LLOQ` values:</b> ", sum(metabolite_matrix == "< LLOQ" & !is.na(metabolite_matrix)), ", <br/> ",
       "<b> `> ULOQ` values:</b> ", sum(metabolite_matrix == "> ULOQ" & !is.na(metabolite_matrix)), ", <br/> ",
       "<b>Missing values:</b> ", sum(is.na(metabolite_matrix) | metabolite_matrix == "NA"), ", <br/> ",
-      "<b>Infinite values (∞):</b> ", sum(metabolite_matrix == Inf & !is.na(metabolite_matrix)), ", <br/> ",
       "<b>Material: </b>", paste0(unique(info_dat[, Material]), collapse = ", "), ", <br/> ",
       "<b>OP: </b>", paste0(unique(info_dat[, OP]), collapse = ", "), ", <br/> ",
-      "<b>Plate Bar Code: </b>", paste0(unique(info_dat[, `Plate Bar Code`]), collapse = ", "), ", <br/> ",
-      "<b>Sample Volume: </b>", paste0(unique(info_dat[, `Sample Volume`]), collapse = ", "),
+      "<b>Plate Bar Code: </b>", paste0(unique(info_dat[, `Plate Bar Code`]), collapse = ", "),
       "."
     ))
   })
@@ -466,27 +511,6 @@ server <- function(input, output, session) {
   })
 
 
-  observeEvent(input[["LOD_strategy"]], {
-    req(dat[["raw_data"]])
-    req(dat[["removed_LOD"]])
-
-    LOD_frac <- switch (input[["LOD_strategy"]],
-                        zero = 0,
-                        `1/2` = 0.5,
-                        `1/sqrt2` = sqrt(0.5),
-                        `detection limit` = 1)
-    browser()
-
-    dat[["completed_data"]] <- metaboR:::handle_LOD(dat[["removed_LOD"]],
-                                                    dat[["LOD_table"]],
-                                                    LOD_frac = LOD_frac,
-                                                    LOD_type = "calc")
-    dat[["removed_CV"]] <- dat[["completed_data"]]
-    dat[["CV_ratios_complete"]] <- attr(dat[["removed_CV"]], "CV_table")
-    dat[["CV_ratios"]] <- attr(dat[["removed_CV"]], "CV_table")
-
-  })
-
 
 
   ################ navigation
@@ -511,48 +535,128 @@ server <- function(input, output, session) {
   output[["group_columns"]] <- DT::renderDataTable({
     req(dat[["biocrates_data"]])
     custom_datatable(dat[["biocrates_data"]],
-                     scrollY = 550,
+                     scrollY = 650,
                      paging = FALSE,
                      selection = list(mode = "single", target = "column"))
   })
 
 
-  output[["selected_group"]] <- renderUI({
+  observeEvent(input[["group_columns_columns_selected"]], {
     req(dat[["biocrates_data"]])
 
+    ##### selected column
     selected_col_id <- input[["group_columns_columns_selected"]]
     selected <- NULL
+    levels <- "-"
+
     if(is.null(selected_col_id)){
       selected <- "none"
     } else {
       column_names_dat <- colnames(dat[["biocrates_data"]])
       selected <- column_names_dat[selected_col_id]
-      if(any(is.na(dat[["biocrates_data"]][`Sample Type` == "Sample", get(selected)]))) {
-        showNotification(paste0("You cannot select ", selected, ". It contains missing values!"),
-                         type = "error")
+
+      if(!length(unique(dat[["biocrates_data"]][ , get(column_names_dat[selected_col_id])])) == 1 &
+         !any(is.na(dat[["biocrates_data"]][`Sample Type` == "Sample", get(column_names_dat[selected_col_id])]))) {
+
+        levels <- paste0(unique(dat[["biocrates_data"]][[selected_col_id]]), collapse = ", ")
+      } else{
+
+        if(length(unique(dat[["biocrates_data"]][ , get(column_names_dat[selected_col_id])])) == 1)
+          showNotification("The chosen column contains only one group!", type = "warning")
+        if(any(is.na(dat[["biocrates_data"]][`Sample Type` == "Sample", get(column_names_dat[selected_col_id])])))
+          showNotification(paste0("You cannot select ", selected, ". It contains missing values!"), type = "error")
+
         selected <- "none"
       }
     }
     dat[["selected_group"]] <- selected
-    HTML(paste0("Selected: ", selected))
+    dat[["levels"]] <- levels
+
+    #### LOD ratios data
+    if(dat[["selected_group"]] == "none") {
+      showNotification("You did not provide a group for calculating LOD ratios!
+                         LOD ratios will be calculated for all samples jointly!",
+                       type = "warning")
+      dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]], group = NULL)
+    } else {
+      group <- dat[["biocrates_data"]][, get(dat[["selected_group"]])]
+      dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]], group = group)
+    }
+
+  })
+
+
+  output[["selected_group"]] <- renderUI({
+    HTML(paste0("Selected: ", dat[["selected_group"]], "<br/><br/>", "Levels: ", dat[["levels"]]))
+  })
+
+
+  observeEvent(input[["LOD_strategy"]], {
+    req(dat[["raw_data"]])
+    req(dat[["removed_LOD"]])
+
+    LOD_frac <- switch (input[["LOD_strategy"]],
+                        zero = 0,
+                        `1/2` = 0.5,
+                        `1/sqrt2` = sqrt(0.5),
+                        `detection limit` = 1)
+
+    dat[["completed_data"]] <- metaboR:::handle_LOD(dat[["removed_LOD"]],
+                                                    dat[["LOD_table"]],
+                                                    LOD_frac = LOD_frac,
+                                                    LOD_type = "calc")
+    dat[["removed_CV"]] <- dat[["completed_data"]]
+    dat[["CV_ratios_complete"]] <- attr(dat[["removed_CV"]], "CV_table")
+    dat[["CV_ratios"]] <- attr(dat[["removed_CV"]], "CV_table")
   })
 
 
   ################ removing LOD
 
   output[["LOD_ratios_tbl"]] <-  DT::renderDataTable({
-    custom_datatable(dat[["LOD_ratios"]], scrollY = 550, paging = FALSE)
+    req(dat[["removed_LOD"]])
+
+    display_ratios <- copy(dat[["LOD_ratios"]])
+
+    if(all(display_ratios[["Group"]] == 1))
+      display_ratios <- unique(display_ratios[, -c("Group")])
+    else
+      display_ratios <- dcast(display_ratios, Compound ~ Group, value.var = "< LOD ratio")
+
+    custom_datatable(display_ratios, scrollY = 550, paging = FALSE)
   })
+
+
+  output[["LOD_plt"]] <- renderPlot({
+    req(dat[["LOD_ratios"]])
+    req(input[["LOD_thresh"]])
+
+    n_groups <- length(na.omit(unique(dat[["LOD_ratios"]][["Group"]])))
+
+    if(n_groups > 4 | n_groups < 2) {
+      sendSweetAlert(session,
+                     title = "Sorry!",
+                     text = paste0("We cannot draw Venna Diagram for ", n_groups, " groups!"),
+                     type = "warning")
+      req(NULL)
+    } else {
+      plot_venn(dat[["LOD_ratios"]], input[["LOD_thresh"]])
+    }
+  })
+
 
   to_remove_LOD <- reactive({
     req(dat[["LOD_ratios"]])
     req(input[["LOD_thresh"]])
+
     metaboR:::get_sparse_columns(dat[["LOD_ratios"]], input[["LOD_thresh"]])
   })
+
 
   output[["to_remove_names"]] <- renderUI({
     get_remove_html_content(to_remove_LOD())
   })
+
 
   observeEvent(input[["remove_btn"]], {
     req(dat[["removed_LOD"]])
@@ -560,7 +664,9 @@ server <- function(input, output, session) {
 
     if(length(to_remove_LOD()) > 0) {
       dat[["removed_LOD"]] <- dat[["removed_LOD"]][ , (get_to_remove(to_remove)) := NULL ]
-      dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]])
+      group <- ifelse(dat[["selected_group"]] == "none", NULL,
+                      dat[["biocrates_data"]][, get(dat[["selected_group"]])])
+      dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]], group = group)
     }
   })
 
@@ -576,7 +682,9 @@ server <- function(input, output, session) {
     if(!is.null(total_removing))
       dat[["removed_LOD"]] <- dat[["removed_LOD"]][, (total_removing) := NULL ]
 
-    dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]])
+    group <- ifelse(dat[["selected_group"]] == "none", NULL,
+                    dat[["biocrates_data"]][, get(dat[["selected_group"]])])
+    dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]], group = group)
   })
 
   to_remove_by_hand <- reactive({
@@ -603,7 +711,9 @@ server <- function(input, output, session) {
     if(length(to_remove_by_hand()) > 0) {
       to_remove[["LOD_hand"]] <- c(to_remove[["LOD_hand"]], to_remove_by_hand())
       dat[["removed_LOD"]] <- dat[["removed_LOD"]][, (to_remove_by_hand()) := NULL ]
-      dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]])
+      group <- ifelse(dat[["selected_group"]] == "none", NULL,
+                      dat[["biocrates_data"]][, get(dat[["selected_group"]])])
+      dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]], group = group)
     }
   })
 
@@ -619,12 +729,31 @@ server <- function(input, output, session) {
     if(!is.null(total_removing))
       dat[["removed_LOD"]] <- dat[["removed_LOD"]][ , (total_removing) := NULL ]
 
-    dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]])
+    group <- ifelse(dat[["selected_group"]] == "none", NULL,
+                    dat[["biocrates_data"]][, get(dat[["selected_group"]])])
+    dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]],
+                                                    group = group)
   })
 
   output[["to_remove_by_hand_names"]] <- renderUI({
     get_remove_html_content(unlist(to_remove_by_hand()))
   })
+
+  ################ COMPLETING LOD
+
+  observeEvent(dat[["LOD_table"]], {
+
+    choices <- match.arg(arg = c("LOD (calc.)", "LOD (from OP)"),
+                         choices = unique(dat[["LOD_table"]]$Type),
+                         several.ok = TRUE)
+
+    updateRadioButtons(session,
+                       "LOD_value_type",
+                       choices = choices,
+                       selected = choices[1])
+
+  })
+
 
   ################ Quality control
 
