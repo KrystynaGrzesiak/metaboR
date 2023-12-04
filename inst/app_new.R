@@ -37,8 +37,8 @@ ui <- navbarPage(
     "Run",
     display_navigation_bar(
       steps = c("Upload data",
-                "Groups setup",
-                "Remove metabolites with high LOD proportion",
+                "Groups",
+                "LOD/LOQ/ULOQ proportion",
                 "Replace LOD/LOQ",
                 "Quality control",
                 "Download")
@@ -135,12 +135,12 @@ ui <- navbarPage(
                                ticks = FALSE),
                    br(),
                    fluidRow(
-                     column(1,
+                     column(2,
                             align = "center",
                             offset = 1,
                             actionButton("remove_btn", label = "Remove")),
-                     column(1,
-                            offset = 1,
+                     column(2,
+                            offset = 2,
                             align = "center",
                             actionButton("undo_btn",label = "Restore"))
                    ),
@@ -179,12 +179,12 @@ ui <- navbarPage(
                    h4("Select metabolites from the table on the right and click Remove!"),
                    br(),
                    fluidRow(
-                     column(1,
+                     column(2,
                             align = "center",
                             offset = 1,
                             actionButton("remove_hand_btn", label = "Remove")),
-                     column(1,
-                            offset = 1,
+                     column(2,
+                            offset = 2,
                             align = "center",
                             actionButton("undo_hand_btn",label = "Restore"))
                    ),
@@ -193,7 +193,7 @@ ui <- navbarPage(
                    htmlOutput("to_remove_by_hand_names"),
                    br()
             ),
-            column(4, offset = 2,
+            column(6, offset = 1,
                    h4("Ratio of <LOD values per metabolite:"),
                    shinycssloaders::withSpinner(
                      DT::dataTableOutput("LOD_ratios_hand_tbl"),
@@ -254,12 +254,12 @@ ui <- navbarPage(
                                selected = c()),
                    br(),
                    fluidRow(
-                     column(1,
+                     column(2,
                             align = "center",
                             offset = 1,
                             actionButton("remove_CV_btn", label = "Remove")),
-                     column(1,
-                            offset = 1,
+                     column(2,
+                            offset = 2,
                             align = "center",
                             actionButton("undo_CV_btn",label = "Restore"))
                    ),
@@ -285,12 +285,12 @@ ui <- navbarPage(
                    h4("Select metabolites from the table on the right and click Remove!"),
                    br(),
                    fluidRow(
-                     column(1,
+                     column(2,
                             align = "center",
                             offset = 1,
                             actionButton("remove_CV_hand_btn", label = "Remove")),
-                     column(1,
-                            offset = 1,
+                     column(2,
+                            offset = 2,
                             align = "center",
                             actionButton("undo_CV_hand_btn",label = "Restore"))
                    ),
@@ -413,6 +413,16 @@ server <- function(input, output, session) {
 
     dat[["raw_data"]] <- raw_data
     dat[["LOD_table"]] <- attr(raw_data, "LOD_table")
+
+    choices <- match.arg(arg = c("LOD (calc.)", "LOD (from OP)"),
+                         choices = unique(dat[["LOD_table"]]$Type),
+                         several.ok = TRUE)
+
+    updateRadioButtons(session,
+                       "LOD_value_type",
+                       choices = choices,
+                       selected = choices[1])
+
     dat[["metabolites"]] <- attr(raw_data, "metabolites")
     dat[["biocrates_data"]] <- attr(raw_data, "biocrates_data")[
       , .SD, .SDcols = !c("Sample Identification", "Measurement Time",
@@ -492,21 +502,21 @@ server <- function(input, output, session) {
     req(dat[["raw_data"]])
 
     custom_datatable(dat[["raw_data"]],
-                     scrollY = 550,
+                     scrollY = 400,
                      paging = FALSE)
   })
 
   output[["biocrates_full_data"]] <- DT::renderDataTable({
     req(dat[["biocrates_data"]])
     custom_datatable(dat[["biocrates_data"]],
-                     scrollY = 550,
+                     scrollY = 400,
                      paging = FALSE)
   })
 
   output[["LOD_table"]] <- DT::renderDataTable({
     req(dat[["LOD_table"]])
     custom_datatable(dat[["LOD_table"]],
-                     scrollY = 550,
+                     scrollY = 400,
                      paging = FALSE)
   })
 
@@ -535,7 +545,7 @@ server <- function(input, output, session) {
   output[["group_columns"]] <- DT::renderDataTable({
     req(dat[["biocrates_data"]])
     custom_datatable(dat[["biocrates_data"]],
-                     scrollY = 650,
+                     scrollY = 550,
                      paging = FALSE,
                      selection = list(mode = "single", target = "column"))
   })
@@ -546,16 +556,14 @@ server <- function(input, output, session) {
 
     ##### selected column
     selected_col_id <- input[["group_columns_columns_selected"]]
-    selected <- NULL
+    selected <- "none"
     levels <- "-"
 
-    if(is.null(selected_col_id)){
-      selected <- "none"
-    } else {
+    if(!is.null(selected_col_id)){
       column_names_dat <- colnames(dat[["biocrates_data"]])
       selected <- column_names_dat[selected_col_id]
 
-      if(!length(unique(dat[["biocrates_data"]][ , get(column_names_dat[selected_col_id])])) == 1 &
+      if(!length(unique(dat[["biocrates_data"]][ , get(column_names_dat[selected_col_id])])) == 1 |
          !any(is.na(dat[["biocrates_data"]][`Sample Type` == "Sample", get(column_names_dat[selected_col_id])]))) {
 
         levels <- paste0(unique(dat[["biocrates_data"]][[selected_col_id]]), collapse = ", ")
@@ -577,13 +585,13 @@ server <- function(input, output, session) {
       showNotification("You did not provide a group for calculating LOD ratios!
                          LOD ratios will be calculated for all samples jointly!",
                        type = "warning")
-      dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]], group = NULL)
+      dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]], group = "none")
     } else {
       group <- dat[["biocrates_data"]][, get(dat[["selected_group"]])]
       dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]], group = group)
     }
 
-  })
+  }, ignoreNULL = FALSE)
 
 
   output[["selected_group"]] <- renderUI({
@@ -613,17 +621,21 @@ server <- function(input, output, session) {
 
   ################ removing LOD
 
-  output[["LOD_ratios_tbl"]] <-  DT::renderDataTable({
+  display_ratios <- reactive({
     req(dat[["removed_LOD"]])
-
     display_ratios <- copy(dat[["LOD_ratios"]])
 
-    if(all(display_ratios[["Group"]] == 1))
+    if(uniqueN(display_ratios[["Group"]]) == 1)
       display_ratios <- unique(display_ratios[, -c("Group")])
     else
       display_ratios <- dcast(display_ratios, Compound ~ Group, value.var = "< LOD ratio")
 
-    custom_datatable(display_ratios, scrollY = 550, paging = FALSE)
+    display_ratios
+  })
+
+
+  output[["LOD_ratios_tbl"]] <-  DT::renderDataTable({
+    custom_datatable(display_ratios(), scrollY = 400, paging = FALSE)
   })
 
 
@@ -660,13 +672,17 @@ server <- function(input, output, session) {
 
   observeEvent(input[["remove_btn"]], {
     req(dat[["removed_LOD"]])
+
     to_remove[["LOD"]] <- to_remove_LOD()
 
     if(length(to_remove_LOD()) > 0) {
       dat[["removed_LOD"]] <- dat[["removed_LOD"]][ , (get_to_remove(to_remove)) := NULL ]
-      group <- ifelse(dat[["selected_group"]] == "none", NULL,
+      group <- ifelse(dat[["selected_group"]] == "none",
+                      "none",
                       dat[["biocrates_data"]][, get(dat[["selected_group"]])])
-      dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]], group = group)
+
+      dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]],
+                                                      group = group)
     }
   })
 
@@ -682,9 +698,11 @@ server <- function(input, output, session) {
     if(!is.null(total_removing))
       dat[["removed_LOD"]] <- dat[["removed_LOD"]][, (total_removing) := NULL ]
 
-    group <- ifelse(dat[["selected_group"]] == "none", NULL,
+    group <- ifelse(dat[["selected_group"]] == "none",
+                    "none",
                     dat[["biocrates_data"]][, get(dat[["selected_group"]])])
-    dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]], group = group)
+    dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]],
+                                                    group = group)
   })
 
   to_remove_by_hand <- reactive({
@@ -699,7 +717,7 @@ server <- function(input, output, session) {
                   selection = list(mode = "multiple", target = "row"),
                   options = list(paging = FALSE,
                                  scrollX = TRUE,
-                                 scrollY = 550,
+                                 scrollY = 400,
                                  pageLength = 15,
                                  searching = FALSE))
   })
@@ -711,9 +729,10 @@ server <- function(input, output, session) {
     if(length(to_remove_by_hand()) > 0) {
       to_remove[["LOD_hand"]] <- c(to_remove[["LOD_hand"]], to_remove_by_hand())
       dat[["removed_LOD"]] <- dat[["removed_LOD"]][, (to_remove_by_hand()) := NULL ]
-      group <- ifelse(dat[["selected_group"]] == "none", NULL,
+      group <- ifelse(dat[["selected_group"]] == "none", "none",
                       dat[["biocrates_data"]][, get(dat[["selected_group"]])])
-      dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]], group = group)
+      dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]],
+                                                      group = group)
     }
   })
 
@@ -729,7 +748,7 @@ server <- function(input, output, session) {
     if(!is.null(total_removing))
       dat[["removed_LOD"]] <- dat[["removed_LOD"]][ , (total_removing) := NULL ]
 
-    group <- ifelse(dat[["selected_group"]] == "none", NULL,
+    group <- ifelse(dat[["selected_group"]] == "none", "none",
                     dat[["biocrates_data"]][, get(dat[["selected_group"]])])
     dat[["LOD_ratios"]] <- metaboR:::get_LOD_ratios(dat[["removed_LOD"]],
                                                     group = group)

@@ -56,6 +56,9 @@ handle_LOD <- function(LOD_data,
 
 complete_LOD <- function(LOD_data, LOD_table, LOD_frac, LOD_type) {
 
+  if(!(LOD_type %in% unique(LOD_table[["Type"]])))
+    LOD_type <- unique(LOD_table[["Type"]])[1]
+
   LOD_data <- melt(LOD_data,
                    id.vars = c("Plate Bar Code",
                                "Sample Identification",

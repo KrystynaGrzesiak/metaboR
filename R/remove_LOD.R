@@ -15,7 +15,7 @@ get_LOD_ratios <- function(LOD_data, group = NULL, metabolites = NULL) {
   if(is.null(metabolites))
     metabolites <- attr(LOD_data, "metabolites")
 
-  if(is.null(group)) {
+   if(all(is.null(group)) | all(group == "none")) {
     group <- rep(1, nrow(LOD_data))
   }
 
@@ -40,11 +40,20 @@ get_LOD_ratios <- function(LOD_data, group = NULL, metabolites = NULL) {
 #'
 
 get_sparse_columns <- function(LOD_tbl, LOD_threshold) {
-  as.vector(unique(copy(LOD_tbl)[
-    , to_remove_per_metabolite := `< LOD ratio` > LOD_threshold
-  ][
-    , to_remove := prod(to_remove_per_metabolite), by = Compound
-  ][to_remove == 1, Compound]))
+
+  if(uniqueN(LOD_tbl[["Group"]]) == 1) {
+    as.vector(unique(copy(LOD_tbl)[
+      , to_remove := `< LOD ratio` > LOD_threshold
+    ][to_remove == 1, Compound]))
+  } else {
+    as.vector(unique(copy(LOD_tbl)[
+      , to_remove_per_metabolite := `< LOD ratio` > LOD_threshold
+    ][
+      , to_remove := prod(to_remove_per_metabolite), by = Compound
+    ][to_remove == 1, Compound]))
+  }
+
+
 }
 
 
